@@ -73,4 +73,12 @@ var options =
 };
 
 var client = new twitch.client( options );
+
+client.on( "chat", function( chatChannel, userstate, message, self )
+{
+    if ( chatChannel != channel ) return;
+    if ( self ) return;
+    if ( message == "!hello" ) client.say( channel, "Hello, " + userstate.username + " !" );
+} );
+
 client.connect();
