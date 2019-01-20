@@ -24,53 +24,5 @@ SOFTWARE.
 
 */
 
-var fs     = require( "fs"        );
-var os     = require( "os"        );
-var twitch = require( "twitch-js" );
-
-var channel = require( "./channel.js" );
-
-function getTwitchAuth()
-{
-    var result = {};
-    var contents = fs.readFileSync( process.env.HOME + "/.TwitchAuth", "utf8" );
-    var lines = contents.split( os.EOL );
-    for ( line of lines )
-    {
-        var nameValuePair = line.split( "=" );
-
-        if ( nameValuePair.length == 2 )
-        {
-            var name  = nameValuePair[ 0 ].trim();
-            var value = nameValuePair[ 1 ].trim();
-
-            if ( name == "username" ) result.username = value;
-            if ( name == "auth"     ) result.auth     = value;
-        }
-    }
-
-    return result;
-}
-
-var twitchAuth = getTwitchAuth();
-
-var options =
-{
-    options:
-    {
-        debug: true
-    },
-    connection:
-    {
-        secure: true
-    },
-    identity:
-    {
-        username: twitchAuth.username,
-        password: twitchAuth.auth,
-    },
-    channels: [ channel ]
-};
-
-var client = new twitch.client( options );
-client.connect();
+// Use this template to create a filed called "channel.js" with the channel you wish to connect to.
+module.exports = "#channel-name-here";

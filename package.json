@@ -1,0 +1,9 @@
+{
+    "name" : "twitch-craps-bot",
+    "version" : "1.0.0-SNAPSHOT",
+    "dependencies" :
+    {
+        "twitch-js" : ""
+    },
+    "private" : true
+}
