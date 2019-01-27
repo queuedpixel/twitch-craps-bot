@@ -9,24 +9,24 @@ Twitch Craps Table Chat Bot
 Create a file in your home directory called `.TwitchAuth` with the following contents:
 
 ```
-username = [Twitch Username]
-auth = [Twitch Auth Token]
+username = [username]
+auth = [auth]
 ```
 
-Replace `[Twitch Username]` with the Twitch username for your chat bot.
+Replace `[username]` with the username for your chat bot.
 
-Replace `[Twitch Auth Token]` with an auth token obtained from: <http://twitchapps.com/tmi/>
+Replace `[auth]` with an OAuth token obtained from: <http://twitchapps.com/tmi/>
 
 ### Configuration
 
-Make a copy of `channel-template.js`, rename it to `channel.js`,
-and enter the name of the channel to which you want to connect.
+Make a copy of `channel-template.js` called `channel.js`
+and specify the name of the channel to which you want to connect.
 
 ## Usage
 
 ### Node.js
 
-Install Node.js from: <https://nodejs.org/>
+Download Node.js from <https://nodejs.org/> and install it.
 
 ### Dependencies
 
