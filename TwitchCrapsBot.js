@@ -31,6 +31,9 @@ var twitch = require( "twitch-js" );
 var config = require( "./config.js" );
 var channel = "#" + config.channel;
 
+var crapsTable = require( "./CrapsTable.js" );
+crapsTable.onMessage = function( message ) { messageQueue.push( message ); }
+
 var messageQueue = [];
 
 function processMessageQueue()
@@ -87,9 +90,9 @@ client.on( "chat", function( chatChannel, userstate, message, self )
 {
     if ( chatChannel != channel ) return;
     if ( self ) return;
-    if (( message == "!hello" ) && ( userstate.username.toLowerCase() == config.owner.toLowerCase() ))
+    if (( message == "!craps roll" ) && ( userstate.username.toLowerCase() == config.owner.toLowerCase() ))
     {
-        messageQueue.push( "Hello, " + userstate.username + " !" );
+        crapsTable.roll();
     }
 } );
 
