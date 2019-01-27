@@ -24,5 +24,10 @@ SOFTWARE.
 
 */
 
-// Use this template to create a filed called "channel.js" with the channel you wish to connect to.
-module.exports = "#channel-name-here";
+// Use this template to create a filed called "config.js" with your desired configuration.
+
+module.exports =
+{
+    channel : "channel-name", // name of the channel to connect to, without the the "#" character
+    owner   : "bot-owner"     // name of the bot owner
+};

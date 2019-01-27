@@ -28,7 +28,8 @@ var fs     = require( "fs"        );
 var os     = require( "os"        );
 var twitch = require( "twitch-js" );
 
-var channel = require( "./channel.js" );
+var config = require( "./config.js" );
+var channel = "#" + config.channel;
 
 function getTwitchAuth()
 {
@@ -78,7 +79,10 @@ client.on( "chat", function( chatChannel, userstate, message, self )
 {
     if ( chatChannel != channel ) return;
     if ( self ) return;
-    if ( message == "!hello" ) client.say( channel, "Hello, " + userstate.username + " !" );
+    if (( message == "!hello" ) && ( userstate.username.toLowerCase() == config.owner.toLowerCase() ))
+    {
+        client.say( channel, "Hello, " + userstate.username + " !" );
+    }
 } );
 
 client.connect();

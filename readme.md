@@ -19,8 +19,10 @@ Replace `[auth]` with an OAuth token obtained from: <http://twitchapps.com/tmi/>
 
 ### Configuration
 
-Make a copy of `channel-template.js` called `channel.js`
-and specify the name of the channel to which you want to connect.
+Make a copy of `config-template.js` called `config.js` and specify your configuration settings:
+
+* `channel` : name of the channel to connect to
+* `owner` : name of the bot owner
 
 ## Usage
 
