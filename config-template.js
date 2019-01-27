@@ -28,6 +28,7 @@ SOFTWARE.
 
 module.exports =
 {
-    channel : "channel-name", // name of the channel to connect to, without the the "#" character
-    owner   : "bot-owner"     // name of the bot owner
+    channel         : "channel-name", // name of the channel to connect to, without the the "#" character
+    owner           : "bot-owner",    // name of the bot owner
+    messageInterval : 2000            // interval between sending messages; milliseconds
 };

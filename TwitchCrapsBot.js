@@ -31,6 +31,14 @@ var twitch = require( "twitch-js" );
 var config = require( "./config.js" );
 var channel = "#" + config.channel;
 
+var messageQueue = [];
+
+function processMessageQueue()
+{
+    if ( messageQueue.length == 0 ) return;
+    client.say( channel, messageQueue.shift() );
+}
+
 function getTwitchAuth()
 {
     var result = {};
@@ -81,8 +89,9 @@ client.on( "chat", function( chatChannel, userstate, message, self )
     if ( self ) return;
     if (( message == "!hello" ) && ( userstate.username.toLowerCase() == config.owner.toLowerCase() ))
     {
-        client.say( channel, "Hello, " + userstate.username + " !" );
+        messageQueue.push( "Hello, " + userstate.username + " !" );
     }
 } );
 
 client.connect();
+setInterval( processMessageQueue, config.messageInterval );
