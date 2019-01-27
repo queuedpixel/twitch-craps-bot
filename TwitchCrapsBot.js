@@ -90,9 +90,10 @@ client.on( "chat", function( chatChannel, userstate, message, self )
 {
     if ( chatChannel != channel ) return;
     if ( self ) return;
-    if (( message == "!craps roll" ) && ( userstate.username.toLowerCase() == config.owner.toLowerCase() ))
+    if ( message.startsWith( "!craps " ))
     {
-        crapsTable.roll();
+        command = message.substr( 6 ).trim();
+        crapsTable.processCommand( userstate.username, command );
     }
 } );
 

@@ -24,6 +24,8 @@ SOFTWARE.
 
 */
 
+var config = require( "./config.js" );
+
 module.exports =
 {
     point: 0,
@@ -35,6 +37,15 @@ module.exports =
     dieRoll()
     {
         return Math.floor( Math.random() * 6 ) + 1;
+    },
+
+    // process chat commands
+    processCommand( username, command )
+    {
+        if (( command == "roll" ) && ( username.toLowerCase() == config.owner.toLowerCase() ))
+        {
+            this.roll();
+        }
     },
 
     // roll the dice and update the craps table status based on the roll
