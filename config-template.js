@@ -30,5 +30,6 @@ module.exports =
 {
     channel         : "channel-name", // name of the channel to connect to, without the the "#" character
     owner           : "bot-owner",    // name of the bot owner
-    messageInterval : 2000            // interval between sending messages; milliseconds
+    messageInterval : 2000,           // interval between sending messages; milliseconds
+    startingBalance : 100             // starting balance for players
 };

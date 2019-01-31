@@ -28,6 +28,7 @@ var config = require( "./config.js" );
 
 module.exports =
 {
+    playerBalances: new Map(),
     point: 0,
 
     // override this function to listen to craps table messages
@@ -39,13 +40,16 @@ module.exports =
         return Math.floor( Math.random() * 6 ) + 1;
     },
 
+    formatCurrency( amount )
+    {
+        return "§" + ( amount / 100 ).toLocaleString( "en-US", { minimumFractionDigits: 2 } );
+    },
+
     // process chat commands
     processCommand( username, command )
     {
-        if (( command == "roll" ) && ( username.toLowerCase() == config.owner.toLowerCase() ))
-        {
-            this.roll();
-        }
+        if (( command == "roll" ) && ( username.toLowerCase() == config.owner.toLowerCase() )) this.roll();
+        if ( command == "balance" ) this.showBalance( username );
     },
 
     // roll the dice and update the craps table status based on the roll
@@ -86,5 +90,17 @@ module.exports =
             this.point = 0;
             this.onMessage( "Seven out." );
         }
+    },
+
+    showBalance( username )
+    {
+        if ( !this.playerBalances.has( username ))
+        {
+            // set the starting balance for players
+            // balances are stored in hundredths of one unit of currency; multiply the configured value by 100
+            this.playerBalances.set( username, config.startingBalance * 100 );
+        }
+
+        this.onMessage( username + " Balance: " + this.formatCurrency( this.playerBalances.get( username )));
     }
 };
