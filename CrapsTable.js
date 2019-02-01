@@ -29,10 +29,16 @@ var config = require( "./config.js" );
 module.exports =
 {
     playerBalances: new Map(),
+    passBets: new Map(),
     point: 0,
 
     // override this function to listen to craps table messages
     onMessage( message ) {},
+
+    userMessage( username, message )
+    {
+        this.onMessage( "@" + username + ", " + message );
+    },
 
     // helper function for getting a random die roll
     dieRoll()
@@ -45,11 +51,56 @@ module.exports =
         return "§" + ( amount / 100 ).toLocaleString( "en-US", { minimumFractionDigits: 2 } );
     },
 
-    // process chat commands
-    processCommand( username, command )
+    getBalance( username )
     {
+        if ( !this.playerBalances.has( username ))
+        {
+            // set the starting balance for players
+            // balances are stored in hundredths of one unit of currency; multiply the configured value by 100
+            this.playerBalances.set( username, config.startingBalance * 100 );
+        }
+
+        return this.playerBalances.get( username );
+    },
+
+    betWon( bet )
+    {
+        return bet;
+    },
+
+    betLost( bet )
+    {
+        return -bet;
+    },
+
+    processBets( bets, betResult )
+    {
+        for ( let username of bets.keys() )
+        {
+            var result = betResult( bets.get( username ));
+            this.playerBalances.set( username, this.getBalance( username ) + result );
+
+            if ( result > 0 ) this.userMessage( username, "won " + this.formatCurrency( result ));
+            else this.userMessage( username, "lost " + this.formatCurrency( -result ));
+        }
+
+        bets.clear();
+    },
+
+    // process chat commands
+    processCommand( username, message )
+    {
+        if ( !message.startsWith( "!craps " ))
+        {
+            this.userMessage( username, "you must specify a sub-command." );
+            return;
+        }
+
+        var command = message.substr( 6 ).trim();
+
         if (( command == "roll" ) && ( username.toLowerCase() == config.owner.toLowerCase() )) this.roll();
         if ( command == "balance" ) this.showBalance( username );
+        if ( command.startsWith( "bet" )) this.handleBet( username, command );
     },
 
     // roll the dice and update the craps table status based on the roll
@@ -64,6 +115,21 @@ module.exports =
         // if we have no point currently ...
         if ( this.point == 0 )
         {
+            // check to see if we have a winner
+            if (( dieTotal == 7  ) ||
+                ( dieTotal == 11 ))
+            {
+                this.processBets( this.passBets, this.betWon );
+            }
+
+            // check to see if we have a loser
+            if (( dieTotal == 2  ) ||
+                ( dieTotal == 3  ) ||
+                ( dieTotal == 12 ))
+            {
+                this.processBets( this.passBets, this.betLost );
+            }
+
             // check to see if we've established a point
             if (( dieTotal == 4  ) ||
                 ( dieTotal == 5  ) ||
@@ -82,6 +148,7 @@ module.exports =
         {
             this.point = 0;
             this.onMessage( "The point was made." );
+            this.processBets( this.passBets, this.betWon );
         }
 
         // check to see if we sevened out
@@ -89,18 +156,66 @@ module.exports =
         {
             this.point = 0;
             this.onMessage( "Seven out." );
+            this.processBets( this.passBets, this.betLost );
         }
     },
 
     showBalance( username )
     {
-        if ( !this.playerBalances.has( username ))
+        this.userMessage( username, "balance: " + this.formatCurrency( this.getBalance( username )));
+    },
+
+    handleBet( username, command )
+    {
+        if ( !command.startsWith( "bet " ))
         {
-            // set the starting balance for players
-            // balances are stored in hundredths of one unit of currency; multiply the configured value by 100
-            this.playerBalances.set( username, config.startingBalance * 100 );
+            this.userMessage( username, "you must specify which bet you wish to make." );
+            return;
         }
 
-        this.onMessage( username + " Balance: " + this.formatCurrency( this.playerBalances.get( username )));
+        var bet = command.substr( 3 ).trim();
+
+        if ( bet.startsWith( "pass" ))
+        {
+            if ( !bet.startsWith( "pass " ))
+            {
+                this.userMessage( username, "you must specify an amount." );
+                return;
+            }
+
+            var amount = parseInt( bet.substr( 4 ).trim() ) * 100;
+
+            if ( Number.isNaN( amount ))
+            {
+                this.userMessage( username, "unable to parse bet." );
+                return;
+            }
+
+            if ( amount < 1 )
+            {
+                this.userMessage( username, "bet is too small." );
+                return;
+            }
+
+            if ( amount > this.getBalance( username ))
+            {
+                this.userMessage(
+                        username, "bet exceeds your balance of " + this.formatCurrency( this.getBalance( username )));
+                return;
+            }
+
+            if ( this.passBets.has( username ))
+            {
+                this.userMessage( username, "you've already made this bet." );
+                return;
+            }
+
+            this.userMessage( username, "bet made." );
+            this.passBets.set( username, amount );
+        }
+        else
+        {
+            this.userMessage( username, "unrecognized bet." );
+        }
     }
 };

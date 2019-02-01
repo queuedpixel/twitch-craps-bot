@@ -90,10 +90,9 @@ client.on( "chat", function( chatChannel, userstate, message, self )
 {
     if ( chatChannel != channel ) return;
     if ( self ) return;
-    if ( message.startsWith( "!craps " ))
+    if ( message.startsWith( "!craps" ))
     {
-        command = message.substr( 6 ).trim();
-        crapsTable.processCommand( userstate.username, command );
+        crapsTable.processCommand( userstate.username, message );
     }
 } );
 
