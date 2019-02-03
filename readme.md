@@ -23,6 +23,8 @@ Make a copy of `config-template.js` called `config.js` and specify your configur
 
 * `channel` : name of the channel to connect to
 * `owner` : name of the bot owner
+* `messageInterval` : interval between sending messages; milliseconds
+* `startingBalance` : starting balance for players
 
 ## Usage
 
