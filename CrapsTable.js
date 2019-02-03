@@ -31,6 +31,8 @@ module.exports =
     playerBalances: new Map(),
     passBets: new Map(),
     point: 0,
+    timerRunning: false,
+    timerCounter: 0,
 
     // override this function to listen to craps table messages
     onMessage( message ) {},
@@ -38,6 +40,35 @@ module.exports =
     userMessage( username, message )
     {
         this.onMessage( "@" + username + ", " + message );
+    },
+
+    initTimer()
+    {
+        setInterval( this.crapsTimer.bind( this ), 1000 );
+    },
+
+    startTimer()
+    {
+        this.timerRunning = true;
+        this.timerCounter = config.rollingDelay;
+    },
+
+    stopTimer()
+    {
+        this.timerRunning = false;
+    },
+
+    // roll the dice after the specified rolling delay has expired
+    crapsTimer()
+    {
+        // do nothing if the timer isn't running
+        if ( !this.timerRunning ) return;
+
+        this.timerCounter--;
+        if ( this.timerCounter <= 0 )
+        {
+            this.processRandomRoll();
+        }
     },
 
     // helper function for getting a random die roll
@@ -111,6 +142,7 @@ module.exports =
                 ( dieTotal == 11 ))
             {
                 this.processBets( this.passBets, this.betWon );
+                this.stopTimer();
             }
 
             // check to see if we have a loser
@@ -119,6 +151,7 @@ module.exports =
                 ( dieTotal == 12 ))
             {
                 this.processBets( this.passBets, this.betLost );
+                this.stopTimer();
             }
 
             // check to see if we've established a point
@@ -131,6 +164,7 @@ module.exports =
             {
                 this.point = dieTotal;
                 this.onMessage( "New point established: " + this.point );
+                this.startTimer();
             }
         }
 
@@ -140,6 +174,7 @@ module.exports =
             this.point = 0;
             this.onMessage( "The point was made." );
             this.processBets( this.passBets, this.betWon );
+            this.stopTimer();
         }
 
         // check to see if we sevened out
@@ -148,7 +183,11 @@ module.exports =
             this.point = 0;
             this.onMessage( "Seven out." );
             this.processBets( this.passBets, this.betLost );
+            this.stopTimer();
         }
+
+        // otherwise, start the timer for the next roll
+        else this.startTimer();
     },
 
     // process chat commands
@@ -260,6 +299,7 @@ module.exports =
 
             this.userMessage( username, "bet made." );
             this.passBets.set( username, amount );
+            this.startTimer();
         }
         else
         {
