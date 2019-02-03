@@ -25,6 +25,7 @@ Make a copy of `config-template.js` called `config.js` and specify your configur
 * `owner` : name of the bot owner
 * `messageInterval` : interval between sending messages; milliseconds
 * `startingBalance` : starting balance for players
+* `debug` : whether or not to enable debugging features
 
 ## Usage
 
@@ -47,6 +48,17 @@ Run the bot using Node.js:
 ```Shell
 node TwitchCrapsBot.js
 ```
+
+### Debugging Tools
+
+If the `debug` configuration is set to `true`, the following debug tools are available:
+
+#### Die Rolls
+
+You can manually roll the dice using the `!craps roll` command.
+If you wish, you can specify the die values.
+
+Example: `!craps roll 3 4`
 
 ## Contributing
 

@@ -87,28 +87,19 @@ module.exports =
         bets.clear();
     },
 
-    // process chat commands
-    processCommand( username, message )
+    // perform a random die roll
+    processRandomRoll()
     {
-        if ( !message.startsWith( "!craps " ))
-        {
-            this.userMessage( username, "you must specify a sub-command." );
-            return;
-        }
-
-        var command = message.substr( 6 ).trim();
-
-        if (( command == "roll" ) && ( username.toLowerCase() == config.owner.toLowerCase() )) this.roll();
-        if ( command == "balance" ) this.showBalance( username );
-        if ( command.startsWith( "bet" )) this.handleBet( username, command );
-    },
-
-    // roll the dice and update the craps table status based on the roll
-    roll()
-    {
-        // roll the dice
+        // randomly determine the die roll
         var die1 = this.dieRoll();
         var die2 = this.dieRoll();
+        this.processRoll( die1, die2 );
+    },
+
+    // update the craps table based on the results of the specifed roll
+    processRoll( die1, die2 )
+    {
+        // print out the roll
         var dieTotal = die1 + die2;
         this.onMessage( "Roll: " + die1 + ", " + die2 + " - (" + dieTotal + ")" );
 
@@ -160,12 +151,69 @@ module.exports =
         }
     },
 
-    showBalance( username )
+    // process chat commands
+    processCommand( username, message )
+    {
+        if ( !message.startsWith( "!craps " ))
+        {
+            this.userMessage( username, "you must specify a command." );
+            return;
+        }
+
+        var command = message.substr( 6 ).trim();
+
+        if (( command.startsWith( "roll" )) &&
+            ( username.toLowerCase() == config.owner.toLowerCase() ) &&
+            ( config.debug ))
+        {
+            this.rollCommand( username, command );
+        }
+        else if ( command == "balance" ) this.balanceCommand( username );
+        else if ( command.startsWith( "bet" )) this.betCommand( username, command );
+        else this.userMessage( username, "uncrecognized command." );
+    },
+
+    rollCommand( username, command )
+    {
+        // perform random roll if die values are not specified
+        if ( !command.startsWith( "roll " ))
+        {
+            this.processRandomRoll();
+            return;
+        }
+
+        var data = command.substr( 4 ).trim();
+        var values = data.split( " " );
+        if ( values.length != 2 )
+        {
+            this.userMessage( username, "you must specify two values." );
+            return;
+        }
+
+        var die1 = parseInt( values[ 0 ] );
+        var die2 = parseInt( values[ 1 ] );
+
+        if (( Number.isNaN( die1 )) || ( Number.isNaN( die2 )))
+        {
+            this.userMessage( username, "unable to parse values." );
+            return;
+        }
+
+        if (( die1 < 1 ) || ( die1 > 6 ) || ( die2 < 1 ) || ( die2 > 6 ))
+        {
+            this.userMessage( username, "values must be between 1 and 6." );
+            return;
+        }
+
+        this.processRoll( die1, die2 );
+    },
+
+    balanceCommand( username )
     {
         this.userMessage( username, "balance: " + this.formatCurrency( this.getBalance( username )));
     },
 
-    handleBet( username, command )
+    betCommand( username, command )
     {
         if ( !command.startsWith( "bet " ))
         {
