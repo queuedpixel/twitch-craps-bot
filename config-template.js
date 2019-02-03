@@ -32,6 +32,6 @@ module.exports =
     owner           : "bot-owner",    // name of the bot owner
     messageInterval : 2000,           // interval between sending messages; milliseconds
     rollingDelay    : 60,             // delay for rolling after the last bet is placed; seconds
-    startingBalance : 100,            // starting balance for players
+    minimumBalance  : 100,            // minimum balance for players
     debug           : false           // whether or not to enable debugging features
 };

@@ -88,10 +88,22 @@ module.exports =
         {
             // set the starting balance for players
             // balances are stored in hundredths of one unit of currency; multiply the configured value by 100
-            this.playerBalances.set( username, config.startingBalance * 100 );
+            this.playerBalances.set( username, config.minimumBalance * 100 );
         }
 
         return this.playerBalances.get( username );
+    },
+
+    // set player balances to the minimum balance for all players below the minimum
+    checkMinimumBalances()
+    {
+        for ( let username of this.playerBalances.keys() )
+        {
+            if ( this.getBalance( username ) < config.minimumBalance * 100 )
+            {
+                this.playerBalances.set( username, config.minimumBalance * 100 );
+            }
+        }
     },
 
     betWon( bet )
@@ -184,6 +196,7 @@ module.exports =
             this.onMessage( "Seven out." );
             this.processBets( this.passBets, this.betLost );
             this.stopTimer();
+            this.checkMinimumBalances();
         }
 
         // otherwise, start the timer for the next roll

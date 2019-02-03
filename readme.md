@@ -25,7 +25,7 @@ Make a copy of `config-template.js` called `config.js` and specify your configur
 * `owner` : name of the bot owner
 * `messageInterval` : interval between sending messages; milliseconds
 * `rollingDelay` : delay for rolling after the last bet is placed; seconds
-* `startingBalance` : starting balance for players
+* `minimumBalance` : minimum balance for players
 * `debug` : whether or not to enable debugging features
 
 ## Usage
