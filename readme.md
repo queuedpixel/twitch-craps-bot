@@ -61,6 +61,10 @@ If you wish, you can specify the die values.
 
 Example: `!craps roll 3 4`
 
+#### Player Guide
+
+Instructions for players are available in our [player guide](guide.md).
+
 ## Contributing
 
 Instructions for those wishing to contribute to this project are available in our
