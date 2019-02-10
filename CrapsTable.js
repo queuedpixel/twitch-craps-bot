@@ -24,6 +24,8 @@ SOFTWARE.
 
 */
 
+var fs = require( "fs" );
+
 var config = require( "./config.js" );
 
 module.exports =
@@ -42,9 +44,21 @@ module.exports =
         this.onMessage( "@" + username + ", " + message );
     },
 
-    initTimer()
+    init()
     {
         setInterval( this.crapsTimer.bind( this ), 1000 );
+
+        fs.readFile( "players.json", ( err, data ) =>
+        {
+            if ( err )
+            {
+                console.log( "Unable to read \"players.json\". Resetting player balances." );
+                console.log( "" );
+                return;
+            }
+
+            this.playerBalances = new Map( JSON.parse( data ));
+        } );
     },
 
     startTimer()
@@ -197,6 +211,8 @@ module.exports =
             this.processBets( this.passBets, this.betLost );
             this.stopTimer();
             this.checkMinimumBalances();
+            fs.writeFile( "players.json", JSON.stringify( [ ...this.playerBalances ], undefined, 4 ),
+                          ( err ) => { if ( err ) throw err; } );
         }
 
         // otherwise, start the timer for the next roll

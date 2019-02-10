@@ -98,4 +98,4 @@ client.on( "chat", function( chatChannel, userstate, message, self )
 
 client.connect();
 setInterval( processMessageQueue, config.messageInterval );
-crapsTable.initTimer();
+crapsTable.init();
