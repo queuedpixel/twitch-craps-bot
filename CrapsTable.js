@@ -32,6 +32,8 @@ module.exports =
 {
     playerBalances: new Map(),
     passBets: new Map(),
+    dpassBets: new Map(),
+    betResults: new Map(),
     point: 0,
     timerRunning: false,
     timerCounter: 0,
@@ -108,6 +110,14 @@ module.exports =
         return this.playerBalances.get( username );
     },
 
+    getAvailableBalance( username )
+    {
+        var availableBalance = this.getBalance( username );
+        if ( this.passBets.has(  username )) availableBalance -= this.passBets.get(  username );
+        if ( this.dpassBets.has( username )) availableBalance -= this.dpassBets.get( username );
+        return availableBalance;
+    },
+
     // set player balances to the minimum balance for all players below the minimum
     checkMinimumBalances()
     {
@@ -136,12 +146,23 @@ module.exports =
         {
             var result = betResult( bets.get( username ));
             this.playerBalances.set( username, this.getBalance( username ) + result );
-
-            if ( result > 0 ) this.userMessage( username, "won " + this.formatCurrency( result ));
-            else this.userMessage( username, "lost " + this.formatCurrency( -result ));
+            if ( !this.betResults.has( username )) this.betResults.set( username, 0 );
+            this.betResults.set( username, this.betResults.get( username ) + result );
         }
 
         bets.clear();
+    },
+
+    showBetResults()
+    {
+        for ( let username of this.betResults.keys() )
+        {
+            var result = this.betResults.get( username );
+            if ( result > 0 ) this.userMessage( username, "won "  + this.formatCurrency(  result ));
+            if ( result < 0 ) this.userMessage( username, "lost " + this.formatCurrency( -result ));
+        }
+
+        this.betResults.clear();
     },
 
     // perform a random die roll
@@ -163,21 +184,21 @@ module.exports =
         // if we have no point currently ...
         if ( this.point == 0 )
         {
-            // check to see if we have a winner
+            // check to see if we have a pass bet winner
             if (( dieTotal == 7  ) ||
                 ( dieTotal == 11 ))
             {
-                this.processBets( this.passBets, this.betWon );
-                this.stopTimer();
+                this.processBets( this.passBets,  this.betWon  );
+                this.processBets( this.dpassBets, this.betLost );
             }
 
-            // check to see if we have a loser
+            // check to see if we have a pass bet loser
             if (( dieTotal == 2  ) ||
                 ( dieTotal == 3  ) ||
                 ( dieTotal == 12 ))
             {
                 this.processBets( this.passBets, this.betLost );
-                this.stopTimer();
+                if ( dieTotal != 12 ) this.processBets( this.dpassBets, this.betWon );
             }
 
             // check to see if we've established a point
@@ -190,7 +211,6 @@ module.exports =
             {
                 this.point = dieTotal;
                 this.onMessage( "New point established: " + this.point );
-                this.startTimer();
             }
         }
 
@@ -199,8 +219,8 @@ module.exports =
         {
             this.point = 0;
             this.onMessage( "The point was made." );
-            this.processBets( this.passBets, this.betWon );
-            this.stopTimer();
+            this.processBets( this.passBets,  this.betWon  );
+            this.processBets( this.dpassBets, this.betLost );
         }
 
         // check to see if we sevened out
@@ -208,15 +228,24 @@ module.exports =
         {
             this.point = 0;
             this.onMessage( "Seven out." );
-            this.processBets( this.passBets, this.betLost );
-            this.stopTimer();
+            this.processBets( this.passBets,  this.betLost );
+            this.processBets( this.dpassBets, this.betWon  );
+        }
+
+        // if there are no bets and no point: check minimum balances, save player balances, and stop the timer
+        if (( this.passBets.size  == 0 ) &&
+            ( this.dpassBets.size == 0 ) &&
+            ( this.point          == 0 ))
+        {
             this.checkMinimumBalances();
             fs.writeFile( "players.json", JSON.stringify( [ ...this.playerBalances ], undefined, 4 ),
                           ( err ) => { if ( err ) throw err; } );
+            this.stopTimer();
         }
-
-        // otherwise, start the timer for the next roll
+        // otherwise: start the timer for the next roll
         else this.startTimer();
+
+        this.showBetResults();
     },
 
     // process chat commands
@@ -279,7 +308,12 @@ module.exports =
 
     balanceCommand( username )
     {
-        this.userMessage( username, "balance: " + this.formatCurrency( this.getBalance( username )));
+        var balance = this.getBalance( username );
+        var availableBalance = this.getAvailableBalance( username );
+
+        var message = "balance: " + this.formatCurrency( balance );
+        if ( balance != availableBalance ) message += "; available balance: " + this.formatCurrency( availableBalance );
+        this.userMessage( username, message );
     },
 
     betCommand( username, command )
@@ -292,48 +326,67 @@ module.exports =
 
         var bet = command.substr( 3 ).trim();
 
-        if ( bet.startsWith( "pass" ))
+        if ( bet.startsWith( "pass" )) this.handleBet( username, "pass", this.passBets, undefined, bet );
+        else if ( bet.startsWith( "dpass" ))
         {
-            if ( !bet.startsWith( "pass " ))
-            {
-                this.userMessage( username, "you must specify an amount." );
-                return;
-            }
-
-            var amount = parseInt( bet.substr( 4 ).trim() ) * 100;
-
-            if ( Number.isNaN( amount ))
-            {
-                this.userMessage( username, "unable to parse bet." );
-                return;
-            }
-
-            if ( amount < 1 )
-            {
-                this.userMessage( username, "bet is too small." );
-                return;
-            }
-
-            if ( amount > this.getBalance( username ))
-            {
-                this.userMessage(
-                        username, "bet exceeds your balance of " + this.formatCurrency( this.getBalance( username )));
-                return;
-            }
-
-            if ( this.passBets.has( username ))
-            {
-                this.userMessage( username, "you've already made this bet." );
-                return;
-            }
-
-            this.userMessage( username, "bet made." );
-            this.passBets.set( username, amount );
-            this.startTimer();
+            this.handleBet( username, "dpass", this.dpassBets, this.dpassCheck.bind( this ), bet );
         }
-        else
+        else this.userMessage( username, "unrecognized bet." );
+    },
+
+    handleBet( username, type, bets, checkFunction, bet )
+    {
+        if ( !bet.startsWith( type + " " ))
         {
-            this.userMessage( username, "unrecognized bet." );
+            this.userMessage( username, "you must specify an amount." );
+            return;
         }
+
+        var amount = parseInt( bet.substr( type.length ).trim() ) * 100;
+        if ( Number.isNaN( amount ))
+        {
+            this.userMessage( username, "unable to parse bet." );
+            return;
+        }
+
+        if ( amount < 1 )
+        {
+            this.userMessage( username, "bet is too small." );
+            return;
+        }
+
+        var availableBalance = this.getAvailableBalance( username );
+        if ( amount > availableBalance )
+        {
+            this.userMessage(
+                    username, "bet exceeds your available balance of " + this.formatCurrency( availableBalance ));
+            return;
+        }
+
+        if ( bets.has( username ))
+        {
+            this.userMessage( username, "you've already made this bet." );
+            return;
+        }
+
+        if ( checkFunction !== undefined )
+        {
+            if ( !checkFunction( username )) return;
+        }
+
+        this.userMessage( username, "bet made." );
+        bets.set( username, amount );
+        this.startTimer();
+    },
+
+    dpassCheck( username )
+    {
+        if ( this.point != 0 )
+        {
+            this.userMessage( username, "you cannot bet \"don't pass\" when a point is set." );
+            return false;
+        }
+
+        return true;
     }
 };

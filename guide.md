@@ -23,4 +23,5 @@ The bot will continue to roll the dice as long as there are bets remaining.
 
 ## Bet Guide
 
-* `pass` - Pass Line Bet
+* `pass` - Pass
+* `dpass` - Don't Pass
