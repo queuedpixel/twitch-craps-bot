@@ -17,6 +17,7 @@ The bot will continue to roll the dice as long as there are bets remaining.
 
 ## Command Guide
 
+* `!craps help` - Show a link to this guide.
 * `!craps balance` - Show your current balance.
 * `!craps bet [type] [amount]` - Place a bet of the specified type with the specified amount.
 

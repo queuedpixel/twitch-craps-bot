@@ -208,7 +208,7 @@ module.exports =
     {
         if ( !message.startsWith( "!craps " ))
         {
-            this.userMessage( username, "you must specify a command." );
+            this.userMessage( username, "you must specify a command. For help: !craps help" );
             return;
         }
 
@@ -220,6 +220,7 @@ module.exports =
         {
             this.rollCommand( username, command );
         }
+        else if ( command == "help" ) this.userMessage( username, "player guide: https://git.io/fhHjL" );
         else if ( command == "balance" ) this.balanceCommand( username );
         else if ( command.startsWith( "bet" )) this.betCommand( username, command );
         else this.userMessage( username, "uncrecognized command." );
