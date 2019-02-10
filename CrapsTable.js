@@ -158,7 +158,7 @@ module.exports =
     {
         // print out the roll
         var dieTotal = die1 + die2;
-        this.onMessage( "Roll: " + die1 + ", " + die2 + " - (" + dieTotal + ")" );
+        this.onMessage( "Roll: " + die1 + " " + die2 + " (" + dieTotal + ")" );
 
         // if we have no point currently ...
         if ( this.point == 0 )
