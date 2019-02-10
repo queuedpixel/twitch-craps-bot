@@ -7,7 +7,7 @@ The Twitch Craps Bot allows you to play craps in Twitch chat.
 ## Play Overview
 
 Commands to the Twitch Craps Bot start with `!craps`.
-Example: `!craps balance`
+Example: `!craps help`
 
 Players place bets using the `!craps bet` command.
 Example: `!craps bet pass 1`
