@@ -26,6 +26,7 @@ Make a copy of `config-template.js` called `config.js` and specify your configur
 * `messageInterval` : interval between sending messages; milliseconds
 * `rollingDelay` : delay for rolling after the last bet is placed; seconds
 * `minimumBalance` : minimum balance for players
+* `maxOdds` : maximum odds that can be placed; multiple of (don't) pass/come bets
 * `debug` : whether or not to enable debugging features
 
 ## Usage

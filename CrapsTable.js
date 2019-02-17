@@ -32,6 +32,7 @@ module.exports =
 {
     playerBalances: new Map(),
     passBets: new Map(),
+    passOddsBets: new Map(),
     dpassBets: new Map(),
     betResults: new Map(),
     point: 0,
@@ -135,6 +136,20 @@ module.exports =
         return bet;
     },
 
+    oddsWon( bet )
+    {
+        switch( this.point )
+        {
+            case 4  :
+            case 10 : return bet * 2;
+            case 5  :
+            case 9  : return bet * ( 3 / 2 );
+            case 6  :
+            case 8  : return bet * ( 6 / 5 );
+            default : throw "Unrecognized point."
+        }
+    },
+
     betLost( bet )
     {
         return -bet;
@@ -218,19 +233,21 @@ module.exports =
         // check to see if the point was made
         else if ( this.point == dieTotal )
         {
+            this.processBets( this.passBets,     this.betWon              );
+            this.processBets( this.passOddsBets, this.oddsWon.bind( this ));
+            this.processBets( this.dpassBets,    this.betLost             );
             this.point = 0;
             this.onMessage( "The point was made." );
-            this.processBets( this.passBets,  this.betWon  );
-            this.processBets( this.dpassBets, this.betLost );
         }
 
         // check to see if we sevened out
         else if ( dieTotal == 7 )
         {
+            this.processBets( this.passBets,     this.betLost );
+            this.processBets( this.passOddsBets, this.betLost );
+            this.processBets( this.dpassBets,    this.betWon  );
             this.point = 0;
             this.onMessage( "Seven out." );
-            this.processBets( this.passBets,  this.betLost );
-            this.processBets( this.dpassBets, this.betWon  );
         }
 
         // if there are no bets and no point: check minimum balances, save player balances, and stop the timer
@@ -327,7 +344,14 @@ module.exports =
 
         var bet = command.substr( 3 ).trim();
 
-        if ( bet.startsWith( "pass" )) this.handleBet( username, "pass", this.passBets, undefined, bet );
+        if ( bet.startsWith( "pass-odds" ))
+        {
+            this.handleBet( username, "pass-odds", this.passOddsBets, this.passOddsCheck.bind( this ), bet );
+        }
+        else if ( bet.startsWith( "pass" ))
+        {
+            this.handleBet( username, "pass", this.passBets, undefined, bet );
+        }
         else if ( bet.startsWith( "dpass" ))
         {
             this.handleBet( username, "dpass", this.dpassBets, this.dpassCheck.bind( this ), bet );
@@ -372,7 +396,7 @@ module.exports =
 
         if ( checkFunction !== undefined )
         {
-            if ( !checkFunction( username )) return;
+            if ( !checkFunction( username, amount )) return;
         }
 
         this.userMessage( username, "bet made." );
@@ -380,11 +404,35 @@ module.exports =
         this.startTimer();
     },
 
-    dpassCheck( username )
+    dpassCheck( username, amount )
     {
         if ( this.point != 0 )
         {
             this.userMessage( username, "you cannot bet \"don't pass\" when a point is set." );
+            return false;
+        }
+
+        return true;
+    },
+
+    passOddsCheck( username, amount )
+    {
+        if ( !this.passBets.has( username ))
+        {
+            this.userMessage( username, "you need a pass bet first." );
+            return false;
+        }
+
+        if ( this.point == 0 )
+        {
+            this.userMessage( username, "you need a point first." );
+            return false;
+        }
+
+        var maxBet = this.passBets.get( username ) * config.maxOdds;
+        if ( amount > maxBet )
+        {
+            this.userMessage( username, "bet exceeds your maximum odds bet of " + this.formatCurrency( maxBet ));
             return false;
         }
 
