@@ -268,7 +268,7 @@ module.exports =
         else if ( command == "help" ) this.userMessage( username, "player guide: https://git.io/fhHjL" );
         else if ( command == "balance" ) this.balanceCommand( username );
         else if ( command.startsWith( "bet" )) this.betCommand( username, command );
-        else this.userMessage( username, "uncrecognized command." );
+        else this.userMessage( username, "uncrecognized command. For help: !craps help" );
     },
 
     rollCommand( username, command )
