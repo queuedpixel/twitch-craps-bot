@@ -34,6 +34,7 @@ module.exports =
     passBets: new Map(),
     passOddsBets: new Map(),
     dpassBets: new Map(),
+    dpassOddsBets: new Map(),
     betResults: new Map(),
     point: 0,
     timerRunning: false,
@@ -114,8 +115,10 @@ module.exports =
     getAvailableBalance( username )
     {
         var availableBalance = this.getBalance( username );
-        if ( this.passBets.has(  username )) availableBalance -= this.passBets.get(  username );
-        if ( this.dpassBets.has( username )) availableBalance -= this.dpassBets.get( username );
+        if ( this.passBets.has(      username )) availableBalance -= this.passBets.get(      username );
+        if ( this.passOddsBets.has(  username )) availableBalance -= this.passOddsBets.get(  username );
+        if ( this.dpassBets.has(     username )) availableBalance -= this.dpassBets.get(     username );
+        if ( this.dpassOddsBets.has( username )) availableBalance -= this.dpassOddsBets.get( username );
         return availableBalance;
     },
 
@@ -131,23 +134,33 @@ module.exports =
         }
     },
 
+    oddsMultiplier( point )
+    {
+        switch( point )
+        {
+            case 4  :
+            case 10 : return 2;
+            case 5  :
+            case 9  : return 3 / 2;
+            case 6  :
+            case 8  : return 6 / 5;
+            default : throw "Unrecognized point."
+        }
+    },
+
     betWon( bet )
     {
         return bet;
     },
 
-    oddsWon( bet )
+    passOddsWon( bet )
     {
-        switch( this.point )
-        {
-            case 4  :
-            case 10 : return bet * 2;
-            case 5  :
-            case 9  : return bet * ( 3 / 2 );
-            case 6  :
-            case 8  : return bet * ( 6 / 5 );
-            default : throw "Unrecognized point."
-        }
+        return this.oddsMultiplier( this.point ) * bet;
+    },
+
+    dpassOddsWon( bet )
+    {
+        return bet / this.oddsMultiplier( this.point );
     },
 
     betLost( bet )
@@ -233,9 +246,10 @@ module.exports =
         // check to see if the point was made
         else if ( this.point == dieTotal )
         {
-            this.processBets( this.passBets,     this.betWon              );
-            this.processBets( this.passOddsBets, this.oddsWon.bind( this ));
-            this.processBets( this.dpassBets,    this.betLost             );
+            this.processBets( this.passBets,      this.betWon                  );
+            this.processBets( this.passOddsBets,  this.passOddsWon.bind( this ));
+            this.processBets( this.dpassBets,     this.betLost                 );
+            this.processBets( this.dpassOddsBets, this.betLost                 );
             this.point = 0;
             this.onMessage( "The point was made." );
         }
@@ -243,9 +257,10 @@ module.exports =
         // check to see if we sevened out
         else if ( dieTotal == 7 )
         {
-            this.processBets( this.passBets,     this.betLost );
-            this.processBets( this.passOddsBets, this.betLost );
-            this.processBets( this.dpassBets,    this.betWon  );
+            this.processBets( this.passBets,      this.betLost );
+            this.processBets( this.passOddsBets,  this.betLost );
+            this.processBets( this.dpassBets,     this.betWon  );
+            this.processBets( this.dpassOddsBets, this.dpassOddsWon.bind( this ));
             this.point = 0;
             this.onMessage( "Seven out." );
         }
@@ -352,6 +367,10 @@ module.exports =
         {
             this.handleBet( username, "pass", this.passBets, undefined, bet );
         }
+        else if ( bet.startsWith( "dpass-odds" ))
+        {
+            this.handleBet( username, "dpass-odds", this.dpassOddsBets, this.dpassOddsCheck.bind( this ), bet );
+        }
         else if ( bet.startsWith( "dpass" ))
         {
             this.handleBet( username, "dpass", this.dpassBets, this.dpassCheck.bind( this ), bet );
@@ -415,21 +434,48 @@ module.exports =
         return true;
     },
 
-    passOddsCheck( username, amount )
+    oddsPointCheck( username )
     {
-        if ( !this.passBets.has( username ))
-        {
-            this.userMessage( username, "you need a pass bet first." );
-            return false;
-        }
-
         if ( this.point == 0 )
         {
             this.userMessage( username, "you need a point first." );
             return false;
         }
 
+        return true;
+    },
+
+    passOddsCheck( username, amount )
+    {
+        if ( !this.passBets.has( username ))
+        {
+            this.userMessage( username, "you need a \"pass\" bet first." );
+            return false;
+        }
+
+        if ( !this.oddsPointCheck( username )) return false;
+
         var maxBet = this.passBets.get( username ) * config.maxOdds;
+        if ( amount > maxBet )
+        {
+            this.userMessage( username, "bet exceeds your maximum odds bet of " + this.formatCurrency( maxBet ));
+            return false;
+        }
+
+        return true;
+    },
+
+    dpassOddsCheck( username, amount )
+    {
+        if ( !this.dpassBets.has( username ))
+        {
+            this.userMessage( username, "you need a \"don't pass\" bet first." );
+            return false;
+        }
+
+        if ( !this.oddsPointCheck( username )) return false;
+
+        var maxBet = this.dpassBets.get( username ) * config.maxOdds * this.oddsMultiplier( this.point );
         if ( amount > maxBet )
         {
             this.userMessage( username, "bet exceeds your maximum odds bet of " + this.formatCurrency( maxBet ));

@@ -26,3 +26,4 @@ The bot will continue to roll the dice as long as there are bets remaining.
 * `pass` - Pass
 * `pass-odds` - Pass Odds
 * `dpass` - Don't Pass
+* `dpass-odds` - Don't Pass Odds
