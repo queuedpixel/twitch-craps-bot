@@ -35,6 +35,13 @@ module.exports =
     passOddsBets: new Map(),
     dpassBets: new Map(),
     dpassOddsBets: new Map(),
+    comeBets: new Map(),
+    come4Bets: new Map(),
+    come5Bets: new Map(),
+    come6Bets: new Map(),
+    come8Bets: new Map(),
+    come9Bets: new Map(),
+    come10Bets: new Map(),
     betResults: new Map(),
     point: 0,
     timerRunning: false,
@@ -119,6 +126,13 @@ module.exports =
         if ( this.passOddsBets.has(  username )) availableBalance -= this.passOddsBets.get(  username );
         if ( this.dpassBets.has(     username )) availableBalance -= this.dpassBets.get(     username );
         if ( this.dpassOddsBets.has( username )) availableBalance -= this.dpassOddsBets.get( username );
+        if ( this.comeBets.has(      username )) availableBalance -= this.comeBets.get(      username );
+        if ( this.come4Bets.has(     username )) availableBalance -= this.come4Bets.get(     username );
+        if ( this.come5Bets.has(     username )) availableBalance -= this.come5Bets.get(     username );
+        if ( this.come6Bets.has(     username )) availableBalance -= this.come6Bets.get(     username );
+        if ( this.come8Bets.has(     username )) availableBalance -= this.come8Bets.get(     username );
+        if ( this.come9Bets.has(     username )) availableBalance -= this.come9Bets.get(     username );
+        if ( this.come10Bets.has(    username )) availableBalance -= this.come10Bets.get(    username );
         return availableBalance;
     },
 
@@ -202,6 +216,50 @@ module.exports =
         this.processRoll( die1, die2 );
     },
 
+    processComeBetPoint( comeBets )
+    {
+        this.processBets( comeBets, this.betWon );
+        for ( let username of this.comeBets.keys() ) comeBets.set( username, this.comeBets.get( username ));
+        this.comeBets.clear();
+    },
+
+    processComeBets( dieTotal )
+    {
+        // handle seven out for come bet points
+        if ( dieTotal == 7 )
+        {
+            this.processBets( this.come4Bets,  this.betLost );
+            this.processBets( this.come5Bets,  this.betLost );
+            this.processBets( this.come6Bets,  this.betLost );
+            this.processBets( this.come8Bets,  this.betLost );
+            this.processBets( this.come9Bets,  this.betLost );
+            this.processBets( this.come10Bets, this.betLost );
+        }
+
+        // check to see if we have a come bet winner
+        if (( dieTotal == 7  ) ||
+            ( dieTotal == 11 ))
+        {
+            this.processBets( this.comeBets, this.betWon );
+        }
+
+        // check to see if we have a come bet loser
+        if (( dieTotal == 2  ) ||
+            ( dieTotal == 3  ) ||
+            ( dieTotal == 12 ))
+        {
+            this.processBets( this.comeBets, this.betLost );
+        }
+
+        // migrate come bets to their specific points
+        if ( dieTotal == 4  ) this.processComeBetPoint( this.come4Bets  );
+        if ( dieTotal == 5  ) this.processComeBetPoint( this.come5Bets  );
+        if ( dieTotal == 6  ) this.processComeBetPoint( this.come6Bets  );
+        if ( dieTotal == 8  ) this.processComeBetPoint( this.come8Bets  );
+        if ( dieTotal == 9  ) this.processComeBetPoint( this.come9Bets  );
+        if ( dieTotal == 10 ) this.processComeBetPoint( this.come10Bets );
+    },
+
     // update the craps table based on the results of the specifed roll
     processRoll( die1, die2 )
     {
@@ -209,6 +267,7 @@ module.exports =
         var dieTotal = die1 + die2;
         var pointDisplay = this.point == 0 ? "No Point" : "Point: " + this.point;
         this.onMessage( pointDisplay + ", Roll: " + die1 + " " + die2 + " (" + dieTotal + ")" );
+        this.processComeBets( dieTotal );
 
         // if we have no point currently ...
         if ( this.point == 0 )
@@ -266,9 +325,18 @@ module.exports =
         }
 
         // if there are no bets and no point: check minimum balances, save player balances, and stop the timer
-        if (( this.passBets.size  == 0 ) &&
-            ( this.dpassBets.size == 0 ) &&
-            ( this.point          == 0 ))
+        if (( this.passBets.size      == 0 ) &&
+            ( this.passOddsBets.size  == 0 ) &&
+            ( this.dpassBets.size     == 0 ) &&
+            ( this.dpassOddsBets.size == 0 ) &&
+            ( this.comeBets.size      == 0 ) &&
+            ( this.come4Bets.size     == 0 ) &&
+            ( this.come5Bets.size     == 0 ) &&
+            ( this.come6Bets.size     == 0 ) &&
+            ( this.come8Bets.size     == 0 ) &&
+            ( this.come9Bets.size     == 0 ) &&
+            ( this.come10Bets.size    == 0 ) &&
+            ( this.point              == 0 ))
         {
             this.checkMinimumBalances();
             fs.writeFile( "players.json", JSON.stringify( [ ...this.playerBalances ], undefined, 4 ),
@@ -375,6 +443,10 @@ module.exports =
         {
             this.handleBet( username, "dpass", this.dpassBets, this.dpassCheck.bind( this ), bet );
         }
+        else if ( bet.startsWith( "come" ))
+        {
+            this.handleBet( username, "come", this.comeBets, this.pointCheck.bind( this ), bet );
+        }
         else this.userMessage( username, "unrecognized bet." );
     },
 
@@ -423,18 +495,7 @@ module.exports =
         this.startTimer();
     },
 
-    dpassCheck( username, amount )
-    {
-        if ( this.point != 0 )
-        {
-            this.userMessage( username, "you cannot bet \"don't pass\" when a point is set." );
-            return false;
-        }
-
-        return true;
-    },
-
-    oddsPointCheck( username )
+    pointCheck( username, amount )
     {
         if ( this.point == 0 )
         {
@@ -453,7 +514,7 @@ module.exports =
             return false;
         }
 
-        if ( !this.oddsPointCheck( username )) return false;
+        if ( !this.pointCheck( username, amount )) return false;
 
         var maxBet = this.passBets.get( username ) * config.maxOdds;
         if ( amount > maxBet )
@@ -473,12 +534,23 @@ module.exports =
             return false;
         }
 
-        if ( !this.oddsPointCheck( username )) return false;
+        if ( !this.pointCheck( username, amount )) return false;
 
         var maxBet = this.dpassBets.get( username ) * config.maxOdds * this.oddsMultiplier( this.point );
         if ( amount > maxBet )
         {
             this.userMessage( username, "bet exceeds your maximum odds bet of " + this.formatCurrency( maxBet ));
+            return false;
+        }
+
+        return true;
+    },
+
+    dpassCheck( username, amount )
+    {
+        if ( this.point != 0 )
+        {
+            this.userMessage( username, "you cannot bet \"don't pass\" when a point is set." );
             return false;
         }
 
