@@ -35,13 +35,7 @@ module.exports =
     passOddsBets: new Map(),
     dpassBets: new Map(),
     dpassOddsBets: new Map(),
-    comeBets: new Map(),
-    come4Bets: new Map(),
-    come5Bets: new Map(),
-    come6Bets: new Map(),
-    come8Bets: new Map(),
-    come9Bets: new Map(),
-    come10Bets: new Map(),
+    comeBets: [],
     betResults: new Map(),
     point: 0,
     timerRunning: false,
@@ -57,6 +51,9 @@ module.exports =
 
     init()
     {
+        // initialize come bets array; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
+        for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 ))) this.comeBets[ i ] = new Map();
+
         setInterval( this.crapsTimer.bind( this ), 1000 );
 
         fs.readFile( "players.json", ( err, data ) =>
@@ -126,13 +123,13 @@ module.exports =
         if ( this.passOddsBets.has(  username )) availableBalance -= this.passOddsBets.get(  username );
         if ( this.dpassBets.has(     username )) availableBalance -= this.dpassBets.get(     username );
         if ( this.dpassOddsBets.has( username )) availableBalance -= this.dpassOddsBets.get( username );
-        if ( this.comeBets.has(      username )) availableBalance -= this.comeBets.get(      username );
-        if ( this.come4Bets.has(     username )) availableBalance -= this.come4Bets.get(     username );
-        if ( this.come5Bets.has(     username )) availableBalance -= this.come5Bets.get(     username );
-        if ( this.come6Bets.has(     username )) availableBalance -= this.come6Bets.get(     username );
-        if ( this.come8Bets.has(     username )) availableBalance -= this.come8Bets.get(     username );
-        if ( this.come9Bets.has(     username )) availableBalance -= this.come9Bets.get(     username );
-        if ( this.come10Bets.has(    username )) availableBalance -= this.come10Bets.get(    username );
+
+        // iterate over come bets array; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
+        for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
+        {
+            if ( this.comeBets[ i ].has( username )) availableBalance -= this.comeBets[ i ].get( username );
+        }
+
         return availableBalance;
     },
 
@@ -219,8 +216,8 @@ module.exports =
     processComeBetPoint( comeBets )
     {
         this.processBets( comeBets, this.betWon );
-        for ( let username of this.comeBets.keys() ) comeBets.set( username, this.comeBets.get( username ));
-        this.comeBets.clear();
+        for ( let username of this.comeBets[ 0 ].keys() ) comeBets.set( username, this.comeBets[ 0 ].get( username ));
+        this.comeBets[ 0 ].clear();
     },
 
     processComeBets( dieTotal )
@@ -228,36 +225,24 @@ module.exports =
         // handle seven out for come bet points
         if ( dieTotal == 7 )
         {
-            this.processBets( this.come4Bets,  this.betLost );
-            this.processBets( this.come5Bets,  this.betLost );
-            this.processBets( this.come6Bets,  this.betLost );
-            this.processBets( this.come8Bets,  this.betLost );
-            this.processBets( this.come9Bets,  this.betLost );
-            this.processBets( this.come10Bets, this.betLost );
+            // iterate over come bets array; indices: [ 4, 5, 6, 8, 9, 10 ]
+            for ( var i = 4; i <= 10; i++ ) if ( i != 7 ) this.processBets( this.comeBets[ i ], this.betLost );
         }
 
         // check to see if we have a come bet winner
-        if (( dieTotal == 7  ) ||
-            ( dieTotal == 11 ))
-        {
-            this.processBets( this.comeBets, this.betWon );
-        }
+        if (( dieTotal == 7 ) || ( dieTotal == 11 )) this.processBets( this.comeBets[ 0 ], this.betWon );
 
         // check to see if we have a come bet loser
-        if (( dieTotal == 2  ) ||
-            ( dieTotal == 3  ) ||
-            ( dieTotal == 12 ))
+        if (( dieTotal == 2 ) || ( dieTotal == 3 ) || ( dieTotal == 12 ))
         {
-            this.processBets( this.comeBets, this.betLost );
+            this.processBets( this.comeBets[ 0 ], this.betLost );
         }
 
         // migrate come bets to their specific points
-        if ( dieTotal == 4  ) this.processComeBetPoint( this.come4Bets  );
-        if ( dieTotal == 5  ) this.processComeBetPoint( this.come5Bets  );
-        if ( dieTotal == 6  ) this.processComeBetPoint( this.come6Bets  );
-        if ( dieTotal == 8  ) this.processComeBetPoint( this.come8Bets  );
-        if ( dieTotal == 9  ) this.processComeBetPoint( this.come9Bets  );
-        if ( dieTotal == 10 ) this.processComeBetPoint( this.come10Bets );
+        if (( dieTotal >= 4 ) && ( dieTotal != 7 ) && ( dieTotal <= 10 ))
+        {
+            this.processComeBetPoint( this.comeBets[ dieTotal ] );
+        }
     },
 
     // update the craps table based on the results of the specifed roll
@@ -273,29 +258,21 @@ module.exports =
         if ( this.point == 0 )
         {
             // check to see if we have a pass bet winner
-            if (( dieTotal == 7  ) ||
-                ( dieTotal == 11 ))
+            if (( dieTotal == 7 ) || ( dieTotal == 11 ))
             {
                 this.processBets( this.passBets,  this.betWon  );
                 this.processBets( this.dpassBets, this.betLost );
             }
 
             // check to see if we have a pass bet loser
-            if (( dieTotal == 2  ) ||
-                ( dieTotal == 3  ) ||
-                ( dieTotal == 12 ))
+            if (( dieTotal == 2 ) || ( dieTotal == 3 ) || ( dieTotal == 12 ))
             {
                 this.processBets( this.passBets, this.betLost );
                 if ( dieTotal != 12 ) this.processBets( this.dpassBets, this.betWon );
             }
 
             // check to see if we've established a point
-            if (( dieTotal == 4  ) ||
-                ( dieTotal == 5  ) ||
-                ( dieTotal == 6  ) ||
-                ( dieTotal == 8  ) ||
-                ( dieTotal == 9  ) ||
-                ( dieTotal == 10 ))
+            if (( dieTotal >= 4 ) && ( dieTotal != 7 ) && ( dieTotal <= 10 ))
             {
                 this.point = dieTotal;
                 this.onMessage( "New point established: " + this.point );
@@ -325,18 +302,7 @@ module.exports =
         }
 
         // if there are no bets and no point: check minimum balances, save player balances, and stop the timer
-        if (( this.passBets.size      == 0 ) &&
-            ( this.passOddsBets.size  == 0 ) &&
-            ( this.dpassBets.size     == 0 ) &&
-            ( this.dpassOddsBets.size == 0 ) &&
-            ( this.comeBets.size      == 0 ) &&
-            ( this.come4Bets.size     == 0 ) &&
-            ( this.come5Bets.size     == 0 ) &&
-            ( this.come6Bets.size     == 0 ) &&
-            ( this.come8Bets.size     == 0 ) &&
-            ( this.come9Bets.size     == 0 ) &&
-            ( this.come10Bets.size    == 0 ) &&
-            ( this.point              == 0 ))
+        if (( !this.betsExist() ) && ( this.point == 0 ))
         {
             this.checkMinimumBalances();
             fs.writeFile( "players.json", JSON.stringify( [ ...this.playerBalances ], undefined, 4 ),
@@ -347,6 +313,22 @@ module.exports =
         else this.startTimer();
 
         this.showBetResults();
+    },
+
+    betsExist()
+    {
+        if ( this.passBets.size      > 0 ) return true;
+        if ( this.passOddsBets.size  > 0 ) return true;
+        if ( this.dpassBets.size     > 0 ) return true;
+        if ( this.dpassOddsBets.size > 0 ) return true;
+
+        // iterate over come bets array; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
+        for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
+        {
+            if ( this.comeBets[ i ].size > 0 ) return true;
+        }
+
+        return false;
     },
 
     // process chat commands
@@ -445,7 +427,7 @@ module.exports =
         }
         else if ( bet.startsWith( "come" ))
         {
-            this.handleBet( username, "come", this.comeBets, this.pointCheck.bind( this ), bet );
+            this.handleBet( username, "come", this.comeBets[ 0 ], this.pointCheck.bind( this ), bet );
         }
         else this.userMessage( username, "unrecognized bet." );
     },
