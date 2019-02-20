@@ -36,6 +36,7 @@ module.exports =
     dpassBets: new Map(),
     dpassOddsBets: new Map(),
     comeBets: [],
+    dcomeBets: [],
     betResults: new Map(),
     point: 0,
     timerRunning: false,
@@ -51,8 +52,12 @@ module.exports =
 
     init()
     {
-        // initialize come bets array; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
-        for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 ))) this.comeBets[ i ] = new Map();
+        // initialize come bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
+        for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
+        {
+            this.comeBets[  i ] = new Map();
+            this.dcomeBets[ i ] = new Map();
+        }
 
         setInterval( this.crapsTimer.bind( this ), 1000 );
 
@@ -124,10 +129,11 @@ module.exports =
         if ( this.dpassBets.has(     username )) availableBalance -= this.dpassBets.get(     username );
         if ( this.dpassOddsBets.has( username )) availableBalance -= this.dpassOddsBets.get( username );
 
-        // iterate over come bets array; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
+        // iterate over come bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
         {
-            if ( this.comeBets[ i ].has( username )) availableBalance -= this.comeBets[ i ].get( username );
+            if ( this.comeBets[  i ].has( username )) availableBalance -= this.comeBets[  i ].get( username );
+            if ( this.dcomeBets[ i ].has( username )) availableBalance -= this.dcomeBets[ i ].get( username );
         }
 
         return availableBalance;
@@ -213,11 +219,29 @@ module.exports =
         this.processRoll( die1, die2 );
     },
 
-    processComeBetPoint( comeBets )
+    processComeBetPoint( dieTotal )
     {
-        this.processBets( comeBets, this.betWon );
-        for ( let username of this.comeBets[ 0 ].keys() ) comeBets.set( username, this.comeBets[ 0 ].get( username ));
-        this.comeBets[ 0 ].clear();
+        if (( dieTotal >= 4 ) && ( dieTotal != 7 ) && ( dieTotal <= 10 ))
+        {
+            this.processBets( this.comeBets[  dieTotal ], this.betWon  );
+            this.processBets( this.dcomeBets[ dieTotal ], this.betLost );
+
+            // copy come bets over to their respective point
+            for ( let username of this.comeBets[ 0 ].keys() )
+            {
+                this.comeBets[ dieTotal ].set( username, this.comeBets[ 0 ].get( username ));
+            }
+
+            // copy don't come bets over to their respective point
+            for ( let username of this.dcomeBets[ 0 ].keys() )
+            {
+                this.dcomeBets[ dieTotal ].set( username, this.dcomeBets[ 0 ].get( username ));
+            }
+
+            // clear out come and don't come bets
+            this.comeBets[  0 ].clear();
+            this.dcomeBets[ 0 ].clear();
+        }
     },
 
     processComeBets( dieTotal )
@@ -226,23 +250,29 @@ module.exports =
         if ( dieTotal == 7 )
         {
             // iterate over come bets array; indices: [ 4, 5, 6, 8, 9, 10 ]
-            for ( var i = 4; i <= 10; i++ ) if ( i != 7 ) this.processBets( this.comeBets[ i ], this.betLost );
+            for ( var i = 4; i <= 10; i++ ) if ( i != 7 )
+            {
+                this.processBets( this.comeBets[  i ], this.betLost );
+                this.processBets( this.dcomeBets[ i ], this.betWon  );
+            }
         }
 
         // check to see if we have a come bet winner
-        if (( dieTotal == 7 ) || ( dieTotal == 11 )) this.processBets( this.comeBets[ 0 ], this.betWon );
+        if (( dieTotal == 7 ) || ( dieTotal == 11 ))
+        {
+            this.processBets( this.comeBets[  0 ], this.betWon  );
+            this.processBets( this.dcomeBets[ 0 ], this.betLost );
+        }
 
         // check to see if we have a come bet loser
         if (( dieTotal == 2 ) || ( dieTotal == 3 ) || ( dieTotal == 12 ))
         {
             this.processBets( this.comeBets[ 0 ], this.betLost );
+            if ( dieTotal != 12 ) this.processBets( this.dcomeBets[ 0 ], this.betWon );
         }
 
-        // migrate come bets to their specific points
-        if (( dieTotal >= 4 ) && ( dieTotal != 7 ) && ( dieTotal <= 10 ))
-        {
-            this.processComeBetPoint( this.comeBets[ dieTotal ] );
-        }
+        // migrate come and don't come bets to their specific points
+        this.processComeBetPoint( dieTotal );
     },
 
     // update the craps table based on the results of the specifed roll
@@ -325,7 +355,8 @@ module.exports =
         // iterate over come bets array; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
         {
-            if ( this.comeBets[ i ].size > 0 ) return true;
+            if ( this.comeBets[  i ].size > 0 ) return true;
+            if ( this.dcomeBets[ i ].size > 0 ) return true;
         }
 
         return false;
@@ -428,6 +459,10 @@ module.exports =
         else if ( bet.startsWith( "come" ))
         {
             this.handleBet( username, "come", this.comeBets[ 0 ], this.pointCheck.bind( this ), bet );
+        }
+        else if ( bet.startsWith( "dcome" ))
+        {
+            this.handleBet( username, "dcome", this.dcomeBets[ 0 ], this.pointCheck.bind( this ), bet );
         }
         else this.userMessage( username, "unrecognized bet." );
     },
