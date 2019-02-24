@@ -28,3 +28,4 @@ The bot will continue to roll the dice as long as there are bets remaining.
 * `dpass` - Don't Pass
 * `dpass-odds` - Don't Pass Odds
 * `come` - Come
+* `come-odds [point]` - Come Odds on the Specified Point
