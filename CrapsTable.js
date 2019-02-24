@@ -387,12 +387,7 @@ module.exports =
 
         var command = message.substr( 6 ).trim();
 
-        if (( command.startsWith( "roll" )) &&
-            ( username.toLowerCase() == config.owner.toLowerCase() ) &&
-            ( config.debug ))
-        {
-            this.rollCommand( username, command );
-        }
+        if ( command.startsWith( "roll" )) this.rollCommand( username, command );
         else if ( command == "help" ) this.userMessage( username, "player guide: https://git.io/fhHjL" );
         else if ( command == "balance" ) this.balanceCommand( username );
         else if ( command.startsWith( "bet" )) this.betCommand( username, command );
@@ -401,6 +396,18 @@ module.exports =
 
     rollCommand( username, command )
     {
+        if ( username.toLowerCase() != config.owner.toLowerCase() )
+        {
+            this.userMessage( username, "you are not authorized to use this command." );
+            return;
+        }
+
+        if ( !config.debug )
+        {
+            this.userMessage( username, "enable debugging to use this command." );
+            return;
+        }
+
         // perform random roll if die values are not specified
         if ( !command.startsWith( "roll " ))
         {
