@@ -23,9 +23,18 @@ The bot will continue to roll the dice as long as there are bets remaining.
 
 ## Bet Guide
 
+Bets that don't apply to a specific point (such as the `pass` bet) use this format:
+
+`!craps bet [type] [amount]`
+
+Bets that apply to a specific point (such as the `come-odds` bet) use this format:
+
+`!craps bet [type] [point] [amount]`
+
 * `pass` - Pass
 * `pass-odds` - Pass Odds
 * `dpass` - Don't Pass
 * `dpass-odds` - Don't Pass Odds
 * `come` - Come
 * `come-odds [point]` - Come Odds on the Specified Point
+* `dcome-odds [point]` - Don't Come Odds on the Specified Point
