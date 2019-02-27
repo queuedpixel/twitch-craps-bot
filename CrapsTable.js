@@ -40,6 +40,7 @@ module.exports =
     dcomeBets: [],
     dcomeOddsBets: [],
     betResults: new Map(),
+    playersShownBets: [],
     point: 0,
     timerRunning: false,
     timerCounter: 0,
@@ -311,6 +312,9 @@ module.exports =
     // update the craps table based on the results of the specifed roll
     processRoll( die1, die2 )
     {
+        // allow all players to view their bets again
+        this.playersShownBets = [];
+
         // print out the roll
         var dieTotal = die1 + die2;
         var pointDisplay = this.point == 0 ? "No Point" : "Point: " + this.point;
@@ -415,6 +419,7 @@ module.exports =
         if ( command.startsWith( "roll" )) this.rollCommand( username, command );
         else if ( command == "help" ) this.userMessage( username, "player guide: https://git.io/fhHjL" );
         else if ( command == "balance" ) this.balanceCommand( username );
+        else if ( command == "bets" ) this.betsCommand( username );
         else if ( command.startsWith( "bet" )) this.betCommand( username, command );
         else this.userMessage( username, "uncrecognized command. For help: !craps help" );
     },
@@ -474,6 +479,75 @@ module.exports =
         var message = "balance: " + this.formatCurrency( balance );
         if ( balance != availableBalance ) message += "; available balance: " + this.formatCurrency( availableBalance );
         this.userMessage( username, message );
+    },
+
+    betsCommand( username )
+    {
+        // skip if the player has already viewed their bets since the last die roll
+        if ( this.playersShownBets.includes( username )) return;
+        this.playersShownBets.push( username );
+
+        var betsFound = false;
+
+        if ( this.passBets.has( username ))
+        {
+            this.userMessage( username, "pass: " + this.formatCurrency( this.passBets.get( username )));
+            betsFound = true;
+        }
+
+        if ( this.passOddsBets.has( username ))
+        {
+            this.userMessage( username, "pass-odds: " + this.formatCurrency( this.passOddsBets.get( username )));
+            betsFound = true;
+        }
+
+        if ( this.dpassBets.has( username ))
+        {
+            this.userMessage( username, "dpass: " + this.formatCurrency( this.dpassBets.get( username )));
+            betsFound = true;
+        }
+
+        if ( this.dpassOddsBets.has( username ))
+        {
+            this.userMessage( username, "dpass-odds: " + this.formatCurrency( this.dpassOddsBets.get( username )));
+            betsFound = true;
+        }
+
+        // iterate over come bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
+        for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
+        {
+            var point = ( i == 0 ) ? "" : " " + i;
+
+            if ( this.comeBets[ i ].has( username ))
+            {
+                var amount = this.formatCurrency( this.comeBets[ i ].get( username ));
+                this.userMessage( username, "come" + point + ": " + amount );
+                betsFound = true;
+            }
+
+            if (( i != 0 ) && ( this.comeOddsBets[ i ].has( username )))
+            {
+                var amount = this.formatCurrency( this.comeOddsBets[ i ].get( username ));
+                this.userMessage( username, "come-odds" + point + ": " + amount );
+                betsFound = true;
+            }
+
+            if ( this.dcomeBets[ i ].has( username ))
+            {
+                var amount = this.formatCurrency( this.dcomeBets[ i ].get( username ));
+                this.userMessage( username, "dcome" + point + ": " + amount );
+                betsFound = true;
+            }
+
+            if (( i != 0 ) && ( this.dcomeOddsBets[ i ].has( username )))
+            {
+                var amount = this.formatCurrency( this.dcomeOddsBets[ i ].get( username ));
+                this.userMessage( username, "dcome-odds" + point + ": " + amount );
+                betsFound = true;
+            }
+        }
+
+        if ( !betsFound ) this.userMessage( username, "you have no bets." );
     },
 
     betCommand( username, command )
