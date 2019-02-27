@@ -150,7 +150,7 @@ module.exports =
                     availableBalance -= this.comeOddsBets[ i ].get( username );
                 }
 
-                if ( this.comeOddsBets[ i ].has( username ))
+                if ( this.dcomeOddsBets[ i ].has( username ))
                 {
                     availableBalance -= this.dcomeOddsBets[ i ].get( username );
                 }
