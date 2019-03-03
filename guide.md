@@ -24,7 +24,7 @@ The bot will continue to roll the dice as long as there are bets remaining.
 
 ## Bet Guide
 
-Bets that don't apply to a specific point (such as the `pass` bet) use this format:
+Bets that don't apply to a specific number (such as the `pass` bet) use this format:
 
 `!craps bet [type] [amount]`
 
