@@ -28,14 +28,15 @@ Bets that don't apply to a specific point (such as the `pass` bet) use this form
 
 `!craps bet [type] [amount]`
 
-Bets that apply to a specific point (such as the `come-odds` bet) use this format:
+Bets that apply to a specific number (such as the `place` bet) use this format:
 
-`!craps bet [type] [point] [amount]`
+`!craps bet [type] [number] [amount]`
 
 * `pass` - Pass
 * `pass-odds` - Pass Odds
 * `dpass` - Don't Pass
 * `dpass-odds` - Don't Pass Odds
 * `come` - Come
-* `come-odds [point]` - Come Odds on the Specified Point
-* `dcome-odds [point]` - Don't Come Odds on the Specified Point
+* `come-odds [number]` - Come Odds on the Specified Number
+* `dcome-odds [number]` - Don't Come Odds on the Specified Number
+* `place [number]` - Place on the Specified Number

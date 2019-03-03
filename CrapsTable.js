@@ -39,6 +39,7 @@ module.exports =
     comeOddsBets: [],
     dcomeBets: [],
     dcomeOddsBets: [],
+    placeBets: [],
     betResults: new Map(),
     playersShownBets: [],
     point: 0,
@@ -55,16 +56,18 @@ module.exports =
 
     init()
     {
-        // initialize come bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
+        // initialize bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
         {
             this.comeBets[  i ] = new Map();
             this.dcomeBets[ i ] = new Map();
 
+            // skip index 0
             if ( i != 0 )
             {
                 this.comeOddsBets[  i ] = new Map();
                 this.dcomeOddsBets[ i ] = new Map();
+                this.placeBets[     i ] = new Map();
             }
         }
 
@@ -107,6 +110,15 @@ module.exports =
         }
     },
 
+    // perform a random die roll
+    processRandomRoll()
+    {
+        // randomly determine the die roll
+        var die1 = this.dieRoll();
+        var die2 = this.dieRoll();
+        this.processRoll( die1, die2 );
+    },
+
     // helper function for getting a random die roll
     dieRoll()
     {
@@ -138,12 +150,13 @@ module.exports =
         if ( this.dpassBets.has(     username )) availableBalance -= this.dpassBets.get(     username );
         if ( this.dpassOddsBets.has( username )) availableBalance -= this.dpassOddsBets.get( username );
 
-        // iterate over come bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
+        // iterate over bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
         {
             if ( this.comeBets[  i ].has( username )) availableBalance -= this.comeBets[  i ].get( username );
             if ( this.dcomeBets[ i ].has( username )) availableBalance -= this.dcomeBets[ i ].get( username );
 
+            // skip index 0
             if ( i != 0 )
             {
                 if ( this.comeOddsBets[ i ].has( username ))
@@ -154,6 +167,11 @@ module.exports =
                 if ( this.dcomeOddsBets[ i ].has( username ))
                 {
                     availableBalance -= this.dcomeOddsBets[ i ].get( username );
+                }
+
+                if ( this.placeBets[ i ].has( username ))
+                {
+                    availableBalance -= this.placeBets[ i ].get( username );
                 }
             }
         }
@@ -173,9 +191,21 @@ module.exports =
         }
     },
 
-    oddsMultiplier( point )
+    showBetResults()
     {
-        switch( point )
+        for ( let username of this.betResults.keys() )
+        {
+            var result = this.betResults.get( username );
+            if ( result > 0 ) this.userMessage( username, "won "  + this.formatCurrency(  result ));
+            if ( result < 0 ) this.userMessage( username, "lost " + this.formatCurrency( -result ));
+        }
+
+        this.betResults.clear();
+    },
+
+    oddsMultiplier( number )
+    {
+        switch( number )
         {
             case 4  :
             case 10 : return 2;
@@ -183,7 +213,21 @@ module.exports =
             case 9  : return 3 / 2;
             case 6  :
             case 8  : return 6 / 5;
-            default : throw "Unrecognized point."
+            default : throw "Unrecognized number."
+        }
+    },
+
+    placeMultiplier( number )
+    {
+        switch( number )
+        {
+            case 4  :
+            case 10 : return 9 / 5;
+            case 5  :
+            case 9  : return 7 / 5;
+            case 6  :
+            case 8  : return 7 / 6;
+            default : throw "Unrecognized number."
         }
     },
 
@@ -194,18 +238,26 @@ module.exports =
 
     // you must bind an object to this function as follows:
     // - crapsTable: reference to the craps table object
-    // - point: the point for the odds
+    // - number: the point for the odds
     lightOddsWon( bet )
     {
-        return this.crapsTable.oddsMultiplier( this.point ) * bet;
+        return this.crapsTable.oddsMultiplier( this.number ) * bet;
     },
 
     // you must bind an object to this function as follows:
     // - crapsTable: reference to the craps table object
-    // - point: the point for the odds
+    // - number: the point for the odds
     darkOddsWon( bet )
     {
-        return bet / this.crapsTable.oddsMultiplier( this.point );
+        return bet / this.crapsTable.oddsMultiplier( this.number );
+    },
+
+    // you must bind an object to this function as follows:
+    // - crapsTable: reference to the craps table object
+    // - number: the number for the bet
+    placeWon( bet )
+    {
+        return Math.floor( this.crapsTable.placeMultiplier( this.number ) * bet );
     },
 
     betLost( bet )
@@ -226,28 +278,7 @@ module.exports =
         bets.clear();
     },
 
-    showBetResults()
-    {
-        for ( let username of this.betResults.keys() )
-        {
-            var result = this.betResults.get( username );
-            if ( result > 0 ) this.userMessage( username, "won "  + this.formatCurrency(  result ));
-            if ( result < 0 ) this.userMessage( username, "lost " + this.formatCurrency( -result ));
-        }
-
-        this.betResults.clear();
-    },
-
-    // perform a random die roll
-    processRandomRoll()
-    {
-        // randomly determine the die roll
-        var die1 = this.dieRoll();
-        var die2 = this.dieRoll();
-        this.processRoll( die1, die2 );
-    },
-
-    processComeBetPoint( dieTotal )
+    processComeBetNumber( dieTotal )
     {
         if (( dieTotal >= 4 ) && ( dieTotal != 7 ) && ( dieTotal <= 10 ))
         {
@@ -255,15 +286,15 @@ module.exports =
             this.processBets( this.dcomeBets[     dieTotal ], this.betLost );
             this.processBets( this.dcomeOddsBets[ dieTotal ], this.betLost );
             this.processBets( this.comeOddsBets[  dieTotal ],
-                              this.lightOddsWon.bind( { crapsTable: this, point: dieTotal } ));
+                              this.lightOddsWon.bind( { crapsTable: this, number: dieTotal } ));
 
-            // copy come bets over to their respective point
+            // copy come bets over to their respective number
             for ( let username of this.comeBets[ 0 ].keys() )
             {
                 this.comeBets[ dieTotal ].set( username, this.comeBets[ 0 ].get( username ));
             }
 
-            // copy don't come bets over to their respective point
+            // copy don't come bets over to their respective number
             for ( let username of this.dcomeBets[ 0 ].keys() )
             {
                 this.dcomeBets[ dieTotal ].set( username, this.dcomeBets[ 0 ].get( username ));
@@ -277,17 +308,17 @@ module.exports =
 
     processComeBets( dieTotal )
     {
-        // handle seven out for come bet points
+        // handle seven out for come bet numbers
         if ( dieTotal == 7 )
         {
-            // iterate over come bets array; indices: [ 4, 5, 6, 8, 9, 10 ]
+            // iterate over come bets arrays; indices: [ 4, 5, 6, 8, 9, 10 ]
             for ( var i = 4; i <= 10; i++ ) if ( i != 7 )
             {
                 this.processBets( this.comeBets[      i ], this.betLost );
                 this.processBets( this.comeOddsBets[  i ], this.betLost );
                 this.processBets( this.dcomeBets[     i ], this.betWon  );
                 this.processBets( this.dcomeOddsBets[ i ],
-                                  this.darkOddsWon.bind( { crapsTable: this, point: i } ));
+                                  this.darkOddsWon.bind( { crapsTable: this, number: i } ));
             }
         }
 
@@ -305,8 +336,23 @@ module.exports =
             if ( dieTotal != 12 ) this.processBets( this.dcomeBets[ 0 ], this.betWon );
         }
 
-        // migrate come and don't come bets to their specific points
-        this.processComeBetPoint( dieTotal );
+        // migrate come and don't come bets to their specific numbers
+        this.processComeBetNumber( dieTotal );
+    },
+
+    processPlaceBets( dieTotal )
+    {
+        // handle seven out
+        if ( dieTotal == 7 )
+        {
+            // iterate over place bets array; indices: [ 4, 5, 6, 8, 9, 10 ]
+            for ( var i = 4; i <= 10; i++ ) if ( i != 7 ) this.processBets( this.placeBets[ i ], this.betLost );
+        }
+
+        if (( dieTotal >= 4 ) && ( dieTotal != 7 ) && ( dieTotal <= 10 ))
+        {
+            this.processBets( this.placeBets[ dieTotal ], this.placeWon.bind( { crapsTable: this, number: dieTotal } ));
+        }
     },
 
     // update the craps table based on the results of the specifed roll
@@ -320,6 +366,7 @@ module.exports =
         var pointDisplay = this.point == 0 ? "No Point" : "Point: " + this.point;
         this.onMessage( pointDisplay + ", Roll: " + die1 + " " + die2 + " (" + dieTotal + ")" );
         this.processComeBets( dieTotal );
+        this.processPlaceBets( dieTotal );
 
         // if we have no point currently ...
         if ( this.point == 0 )
@@ -352,7 +399,7 @@ module.exports =
             this.processBets( this.passBets,      this.betWon  );
             this.processBets( this.dpassBets,     this.betLost );
             this.processBets( this.dpassOddsBets, this.betLost );
-            this.processBets( this.passOddsBets,  this.lightOddsWon.bind( { crapsTable: this, point: this.point } ));
+            this.processBets( this.passOddsBets,  this.lightOddsWon.bind( { crapsTable: this, number: this.point } ));
             this.point = 0;
             this.onMessage( "The point was made." );
         }
@@ -363,7 +410,7 @@ module.exports =
             this.processBets( this.passBets,      this.betLost );
             this.processBets( this.passOddsBets,  this.betLost );
             this.processBets( this.dpassBets,     this.betWon  );
-            this.processBets( this.dpassOddsBets, this.darkOddsWon.bind( { crapsTable: this, point: this.point } ));
+            this.processBets( this.dpassOddsBets, this.darkOddsWon.bind( { crapsTable: this, number: this.point } ));
             this.point = 0;
             this.onMessage( "Seven out." );
         }
@@ -389,16 +436,18 @@ module.exports =
         if ( this.dpassBets.size     > 0 ) return true;
         if ( this.dpassOddsBets.size > 0 ) return true;
 
-        // iterate over come bets array; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
+        // iterate over bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
         {
             if ( this.comeBets[  i ].size > 0 ) return true;
             if ( this.dcomeBets[ i ].size > 0 ) return true;
 
+            // skip index 0
             if ( i != 0 )
             {
                 if ( this.comeOddsBets[  i ].size > 0 ) return true;
                 if ( this.dcomeOddsBets[ i ].size > 0 ) return true;
+                if ( this.placeBets[     i ].size > 0 ) return true;
             }
         }
 
@@ -516,35 +565,43 @@ module.exports =
         // iterate over come bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
         {
-            var point = ( i == 0 ) ? "" : " " + i;
+            var number = ( i == 0 ) ? "" : " " + i;
 
             if ( this.comeBets[ i ].has( username ))
             {
                 var amount = this.formatCurrency( this.comeBets[ i ].get( username ));
-                this.userMessage( username, "come" + point + ": " + amount );
+                this.userMessage( username, "come" + number + ": " + amount );
                 betsFound = true;
             }
 
             if (( i != 0 ) && ( this.comeOddsBets[ i ].has( username )))
             {
                 var amount = this.formatCurrency( this.comeOddsBets[ i ].get( username ));
-                this.userMessage( username, "come-odds" + point + ": " + amount );
+                this.userMessage( username, "come-odds" + number + ": " + amount );
                 betsFound = true;
             }
 
             if ( this.dcomeBets[ i ].has( username ))
             {
                 var amount = this.formatCurrency( this.dcomeBets[ i ].get( username ));
-                this.userMessage( username, "dcome" + point + ": " + amount );
+                this.userMessage( username, "dcome" + number + ": " + amount );
                 betsFound = true;
             }
 
             if (( i != 0 ) && ( this.dcomeOddsBets[ i ].has( username )))
             {
                 var amount = this.formatCurrency( this.dcomeOddsBets[ i ].get( username ));
-                this.userMessage( username, "dcome-odds" + point + ": " + amount );
+                this.userMessage( username, "dcome-odds" + number + ": " + amount );
                 betsFound = true;
             }
+        }
+
+        // iterate over place bets array; indices: [ 4, 5, 6, 8, 9, 10 ]
+        for ( var i = 4; i <= 10; i++ ) if (( i != 7 ) && ( this.placeBets[ i ].has( username )))
+        {
+            var amount = this.formatCurrency( this.placeBets[ i ].get( username ));
+            this.userMessage( username, "place " + i + ": " + amount );
+            betsFound = true;
         }
 
         if ( !betsFound ) this.userMessage( username, "you have no bets." );
@@ -592,33 +649,51 @@ module.exports =
         {
             this.handleBet( username, "dcome", this.dcomeBets[ 0 ], this.pointCheck.bind( this ), bet );
         }
+        else if ( bet.startsWith( "place" ))
+        {
+            this.handleNumberBet( username, "place", this.placeBets, bet );
+        }
         else this.userMessage( username, "unrecognized bet." );
+    },
+
+    getBetNumber( username, type, bet )
+    {
+        if ( !bet.startsWith( type + " " ))
+        {
+            this.userMessage( username, "you must specify a number." );
+            return Number.NaN;
+        }
+
+        var number = parseInt( bet.substr( type.length ).trim() );
+        if ( Number.isNaN( number ))
+        {
+            this.userMessage( username, "unable to parse number." );
+            return Number.NaN;
+        }
+
+        if (( number < 4 ) || ( number == 7 ) || ( number > 10 ))
+        {
+            this.userMessage( username, "invalid number." );
+            return Number.NaN;
+        }
+
+        return number;
     },
 
     handleComeOddsBet( username, type, comeBets, comeOddsBets, bet, isLight )
     {
-        if ( !bet.startsWith( type + " " ))
-        {
-            this.userMessage( username, "you must specify a point." );
-            return;
-        }
-
-        var point = parseInt( bet.substr( type.length ).trim() );
-        if ( Number.isNaN( point ))
-        {
-            this.userMessage( username, "unable to parse point." );
-            return;
-        }
-
-        if (( point < 4 ) || ( point == 7 ) || ( point > 10 ))
-        {
-            this.userMessage( username, "invalid point." );
-            return;
-        }
-
-        var checkParams = { crapsTable: this, comeBets: comeBets, point: point, isLight: isLight }
+        number = this.getBetNumber( username, type, bet );
+        if ( Number.isNaN( number )) return;
+        var checkParams = { crapsTable: this, comeBets: comeBets, number: number, isLight: isLight }
         var checkFunction = this.comeOddsCheck.bind( checkParams );
-        this.handleBet( username, type + " " + point, comeOddsBets[ point ], checkFunction, bet );
+        this.handleBet( username, type + " " + number, comeOddsBets[ number ], checkFunction, bet );
+    },
+
+    handleNumberBet( username, type, bets, bet )
+    {
+        number = this.getBetNumber( username, type, bet );
+        if ( Number.isNaN( number )) return;
+        this.handleBet( username, type + " " + number, bets[ number ], undefined, bet );
     },
 
     handleBet( username, type, bets, checkFunction, bet )
@@ -733,20 +808,20 @@ module.exports =
     // you must bind an object to this function as follows:
     // - crapsTable: reference to the craps table object
     // - comeBets: the come bets array containing the corresponding come bets for the come odds bet
-    // - point: the point for the come odds
+    // - number: the point for the come odds
     // - isLight: true for "come-odds" bets, false for "dcome-odds" bets
     comeOddsCheck( username, amount )
     {
         var type = this.isLight ? "come" : "don't come";
 
-        if ( !this.comeBets[ this.point ].has( username ))
+        if ( !this.comeBets[ this.number ].has( username ))
         {
-            this.crapsTable.userMessage( username, "you need a \"" + type + "\" bet on this point first." );
+            this.crapsTable.userMessage( username, "you need a \"" + type + "\" bet on this number first." );
             return false;
         }
 
-        var baseAmount = this.comeBets[ this.point ].get( username );
-        var oddsMultiplier = this.isLight ? 1 : this.crapsTable.oddsMultiplier( this.point );
+        var baseAmount = this.comeBets[ this.number ].get( username );
+        var oddsMultiplier = this.isLight ? 1 : this.crapsTable.oddsMultiplier( this.number );
         if ( !this.crapsTable.maxOddsCheck.bind( this.crapsTable )( username, baseAmount, amount, oddsMultiplier ))
         {
             return false;
