@@ -41,6 +41,7 @@ module.exports =
     dcomeOddsBets: [],
     placeBets: [],
     dplaceBets: [],
+    buyBets: [],
     betResults: new Map(),
     playersShownBets: [],
     point: 0,
@@ -70,6 +71,7 @@ module.exports =
                 this.dcomeOddsBets[ i ] = new Map();
                 this.placeBets[     i ] = new Map();
                 this.dplaceBets[    i ] = new Map();
+                this.buyBets[       i ] = new Map();
             }
         }
 
@@ -180,10 +182,20 @@ module.exports =
                 {
                     availableBalance -= this.dplaceBets[ i ].get( username );
                 }
+
+                if ( this.buyBets[ i ].has( username ))
+                {
+                    availableBalance -= this.buyBets[ i ].get( username );
+                }
             }
         }
 
         return availableBalance;
+    },
+
+    adjustBalance( username, amount )
+    {
+        this.playerBalances.set( username, this.getBalance( username ) + amount );
     },
 
     // set player balances to the minimum balance for all players below the minimum
@@ -294,28 +306,28 @@ module.exports =
         return -bet;
     },
 
-    processBets( bets, betResult )
+    processBets( bets, betResult, clearBets )
     {
         for ( let username of bets.keys() )
         {
             var result = betResult( bets.get( username ));
-            this.playerBalances.set( username, this.getBalance( username ) + result );
+            this.adjustBalance( username, result );
             if ( !this.betResults.has( username )) this.betResults.set( username, 0 );
             this.betResults.set( username, this.betResults.get( username ) + result );
         }
 
-        bets.clear();
+        if ( clearBets ) bets.clear();
     },
 
     processComeBetNumber( dieTotal )
     {
         if (( dieTotal >= 4 ) && ( dieTotal != 7 ) && ( dieTotal <= 10 ))
         {
-            this.processBets( this.comeBets[      dieTotal ], this.betWon  );
-            this.processBets( this.dcomeBets[     dieTotal ], this.betLost );
-            this.processBets( this.dcomeOddsBets[ dieTotal ], this.betLost );
+            this.processBets( this.comeBets[      dieTotal ], this.betWon,  true );
+            this.processBets( this.dcomeBets[     dieTotal ], this.betLost, true );
+            this.processBets( this.dcomeOddsBets[ dieTotal ], this.betLost, true );
             this.processBets( this.comeOddsBets[  dieTotal ],
-                              this.lightOddsWon.bind( { crapsTable: this, number: dieTotal } ));
+                              this.lightOddsWon.bind( { crapsTable: this, number: dieTotal } ), true );
 
             // copy come bets over to their respective number
             for ( let username of this.comeBets[ 0 ].keys() )
@@ -343,33 +355,33 @@ module.exports =
             // iterate over come bets arrays; indices: [ 4, 5, 6, 8, 9, 10 ]
             for ( var i = 4; i <= 10; i++ ) if ( i != 7 )
             {
-                this.processBets( this.comeBets[      i ], this.betLost );
-                this.processBets( this.comeOddsBets[  i ], this.betLost );
-                this.processBets( this.dcomeBets[     i ], this.betWon  );
+                this.processBets( this.comeBets[      i ], this.betLost, true );
+                this.processBets( this.comeOddsBets[  i ], this.betLost, true );
+                this.processBets( this.dcomeBets[     i ], this.betWon,  true );
                 this.processBets( this.dcomeOddsBets[ i ],
-                                  this.darkOddsWon.bind( { crapsTable: this, number: i } ));
+                                  this.darkOddsWon.bind( { crapsTable: this, number: i } ), true );
             }
         }
 
         // check to see if we have a come bet winner
         if (( dieTotal == 7 ) || ( dieTotal == 11 ))
         {
-            this.processBets( this.comeBets[  0 ], this.betWon  );
-            this.processBets( this.dcomeBets[ 0 ], this.betLost );
+            this.processBets( this.comeBets[  0 ], this.betWon,  true );
+            this.processBets( this.dcomeBets[ 0 ], this.betLost, true );
         }
 
         // check to see if we have a come bet loser
         if (( dieTotal == 2 ) || ( dieTotal == 3 ) || ( dieTotal == 12 ))
         {
-            this.processBets( this.comeBets[ 0 ], this.betLost );
-            if ( dieTotal != 12 ) this.processBets( this.dcomeBets[ 0 ], this.betWon );
+            this.processBets( this.comeBets[ 0 ], this.betLost, true );
+            if ( dieTotal != 12 ) this.processBets( this.dcomeBets[ 0 ], this.betWon, true );
         }
 
         // migrate come and don't come bets to their specific numbers
         this.processComeBetNumber( dieTotal );
     },
 
-    processPlaceBets( dieTotal )
+    processNumberBets( dieTotal )
     {
         // handle seven out
         if ( dieTotal == 7 )
@@ -377,15 +389,20 @@ module.exports =
             // iterate over place bets arrays; indices: [ 4, 5, 6, 8, 9, 10 ]
             for ( var i = 4; i <= 10; i++ ) if ( i != 7 )
             {
-                this.processBets( this.placeBets[ i ], this.betLost );
-                this.processBets( this.dplaceBets[ i ], this.dplaceWon.bind( { crapsTable: this, number: i } ));
+                this.processBets( this.placeBets[  i ], this.betLost, true );
+                this.processBets( this.buyBets[    i ], this.betLost, true );
+                this.processBets( this.dplaceBets[ i ], this.dplaceWon.bind( { crapsTable: this, number: i } ), true );
             }
         }
 
+        // handle hitting a specific number
         if (( dieTotal >= 4 ) && ( dieTotal != 7 ) && ( dieTotal <= 10 ))
         {
-            this.processBets( this.placeBets[ dieTotal ], this.placeWon.bind( { crapsTable: this, number: dieTotal } ));
-            this.processBets( this.dplaceBets[ dieTotal ], this.betLost );
+            this.processBets(
+                    this.placeBets[ dieTotal ], this.placeWon.bind( { crapsTable: this, number: dieTotal } ), true );
+            this.processBets( this.dplaceBets[ dieTotal ], this.betLost, true );
+            this.processBets(
+                    this.buyBets[ dieTotal ], this.lightOddsWon.bind( { crapsTable: this, number: dieTotal } ), false );
         }
     },
 
@@ -400,7 +417,7 @@ module.exports =
         var pointDisplay = this.point == 0 ? "No Point" : "Point: " + this.point;
         this.onMessage( pointDisplay + ", Roll: " + die1 + " " + die2 + " (" + dieTotal + ")" );
         this.processComeBets( dieTotal );
-        this.processPlaceBets( dieTotal );
+        this.processNumberBets( dieTotal );
 
         // if we have no point currently ...
         if ( this.point == 0 )
@@ -408,15 +425,15 @@ module.exports =
             // check to see if we have a pass bet winner
             if (( dieTotal == 7 ) || ( dieTotal == 11 ))
             {
-                this.processBets( this.passBets,  this.betWon  );
-                this.processBets( this.dpassBets, this.betLost );
+                this.processBets( this.passBets,  this.betWon,  true );
+                this.processBets( this.dpassBets, this.betLost, true );
             }
 
             // check to see if we have a pass bet loser
             if (( dieTotal == 2 ) || ( dieTotal == 3 ) || ( dieTotal == 12 ))
             {
-                this.processBets( this.passBets, this.betLost );
-                if ( dieTotal != 12 ) this.processBets( this.dpassBets, this.betWon );
+                this.processBets( this.passBets, this.betLost, true );
+                if ( dieTotal != 12 ) this.processBets( this.dpassBets, this.betWon, true );
             }
 
             // check to see if we've established a point
@@ -430,10 +447,11 @@ module.exports =
         // check to see if the point was made
         else if ( this.point == dieTotal )
         {
-            this.processBets( this.passBets,      this.betWon  );
-            this.processBets( this.dpassBets,     this.betLost );
-            this.processBets( this.dpassOddsBets, this.betLost );
-            this.processBets( this.passOddsBets,  this.lightOddsWon.bind( { crapsTable: this, number: this.point } ));
+            this.processBets( this.passBets,      this.betWon,  true );
+            this.processBets( this.dpassBets,     this.betLost, true );
+            this.processBets( this.dpassOddsBets, this.betLost, true );
+            this.processBets( this.passOddsBets,
+                              this.lightOddsWon.bind( { crapsTable: this, number: this.point } ), true );
             this.point = 0;
             this.onMessage( "The point was made." );
         }
@@ -441,10 +459,11 @@ module.exports =
         // check to see if we sevened out
         else if ( dieTotal == 7 )
         {
-            this.processBets( this.passBets,      this.betLost );
-            this.processBets( this.passOddsBets,  this.betLost );
-            this.processBets( this.dpassBets,     this.betWon  );
-            this.processBets( this.dpassOddsBets, this.darkOddsWon.bind( { crapsTable: this, number: this.point } ));
+            this.processBets( this.passBets,      this.betLost, true );
+            this.processBets( this.passOddsBets,  this.betLost, true );
+            this.processBets( this.dpassBets,     this.betWon,  true );
+            this.processBets( this.dpassOddsBets,
+                              this.darkOddsWon.bind( { crapsTable: this, number: this.point } ), true );
             this.point = 0;
             this.onMessage( "Seven out." );
         }
@@ -483,6 +502,7 @@ module.exports =
                 if ( this.dcomeOddsBets[ i ].size > 0 ) return true;
                 if ( this.placeBets[     i ].size > 0 ) return true;
                 if ( this.dplaceBets[    i ].size > 0 ) return true;
+                if ( this.buyBets[       i ].size > 0 ) return true;
             }
         }
 
@@ -631,7 +651,7 @@ module.exports =
             }
         }
 
-        // iterate over place bets array; indices: [ 4, 5, 6, 8, 9, 10 ]
+        // iterate over place, dplace, and buy bets arrays; indices: [ 4, 5, 6, 8, 9, 10 ]
         for ( var i = 4; i <= 10; i++ ) if ( i != 7 )
         {
             if ( this.placeBets[ i ].has( username ))
@@ -645,6 +665,13 @@ module.exports =
             {
                 var amount = this.formatCurrency( this.dplaceBets[ i ].get( username ));
                 this.userMessage( username, "dplace " + i + ": " + amount );
+                betsFound = true;
+            }
+
+            if ( this.buyBets[ i ].has( username ))
+            {
+                var amount = this.formatCurrency( this.buyBets[ i ].get( username ));
+                this.userMessage( username, "buy " + i + ": " + amount );
                 betsFound = true;
             }
         }
@@ -696,11 +723,15 @@ module.exports =
         }
         else if ( bet.startsWith( "place" ))
         {
-            this.handleNumberBet( username, "place", this.placeBets, bet );
+            this.handleNumberBet( username, "place", this.placeBets, undefined, bet );
         }
         else if ( bet.startsWith( "dplace" ))
         {
-            this.handleNumberBet( username, "dplace", this.dplaceBets, bet );
+            this.handleNumberBet( username, "dplace", this.dplaceBets, undefined, bet );
+        }
+        else if ( bet.startsWith( "buy" ))
+        {
+            this.handleNumberBet( username, "buy", this.buyBets, this.buyCheck, bet );
         }
         else this.userMessage( username, "unrecognized bet." );
     },
@@ -738,11 +769,12 @@ module.exports =
         this.handleBet( username, type + " " + number, comeOddsBets[ number ], checkFunction, bet );
     },
 
-    handleNumberBet( username, type, bets, bet )
+    handleNumberBet( username, type, bets, checkFunction, bet )
     {
         number = this.getBetNumber( username, type, bet );
         if ( Number.isNaN( number )) return;
-        this.handleBet( username, type + " " + number, bets[ number ], undefined, bet );
+        if ( checkFunction !== undefined ) checkFunction = checkFunction.bind( { crapsTable: this, number: number } );
+        this.handleBet( username, type + " " + number, bets[ number ], checkFunction, bet );
     },
 
     handleBet( username, type, bets, checkFunction, bet )
@@ -780,13 +812,15 @@ module.exports =
             return;
         }
 
+        var finalAmount = amount;
         if ( checkFunction !== undefined )
         {
-            if ( !checkFunction( username, amount )) return;
+            finalAmount = checkFunction( username, amount );
+            if ( Number.isNaN( finalAmount )) return;
         }
 
         this.userMessage( username, "bet made." );
-        bets.set( username, amount );
+        bets.set( username, finalAmount );
         this.startTimer();
     },
 
@@ -795,10 +829,10 @@ module.exports =
         if ( this.point == 0 )
         {
             this.userMessage( username, "you need a point first." );
-            return false;
+            return Number.NaN;
         }
 
-        return true;
+        return amount;
     },
 
     maxOddsCheck( username, baseAmount, oddsAmount, oddsMultiplier )
@@ -818,12 +852,12 @@ module.exports =
         if ( !this.passBets.has( username ))
         {
             this.userMessage( username, "you need a \"pass\" bet first." );
-            return false;
+            return Number.NaN;
         }
 
-        if ( !this.pointCheck( username, amount )) return false;
-        if ( !this.maxOddsCheck( username, this.passBets.get( username ), amount, 1 )) return false;
-        return true;
+        if ( Number.isNaN( this.pointCheck( username, amount ))) return Number.NaN;
+        if ( !this.maxOddsCheck( username, this.passBets.get( username ), amount, 1 )) return Number.NaN;
+        return amount;
     },
 
     dpassOddsCheck( username, amount )
@@ -831,16 +865,16 @@ module.exports =
         if ( !this.dpassBets.has( username ))
         {
             this.userMessage( username, "you need a \"don't pass\" bet first." );
-            return false;
+            return Number.NaN;
         }
 
-        if ( !this.pointCheck( username, amount )) return false;
+        if ( Number.isNaN( this.pointCheck( username, amount ))) return Number.NaN;
 
         var baseAmount = this.dpassBets.get( username );
         var oddsMultiplier = this.oddsMultiplier( this.point );
-        if ( !this.maxOddsCheck( username, baseAmount, amount, oddsMultiplier )) return false;
+        if ( !this.maxOddsCheck( username, baseAmount, amount, oddsMultiplier )) return Number.NaN;
 
-        return true;
+        return amount;
     },
 
     dpassCheck( username, amount )
@@ -848,10 +882,10 @@ module.exports =
         if ( this.point != 0 )
         {
             this.userMessage( username, "you cannot bet \"don't pass\" when a point is set." );
-            return false;
+            return Number.NaN;
         }
 
-        return true;
+        return amount;
     },
 
     // you must bind an object to this function as follows:
@@ -866,16 +900,27 @@ module.exports =
         if ( !this.comeBets[ this.number ].has( username ))
         {
             this.crapsTable.userMessage( username, "you need a \"" + type + "\" bet on this number first." );
-            return false;
+            return Number.NaN;
         }
 
         var baseAmount = this.comeBets[ this.number ].get( username );
         var oddsMultiplier = this.isLight ? 1 : this.crapsTable.oddsMultiplier( this.number );
         if ( !this.crapsTable.maxOddsCheck.bind( this.crapsTable )( username, baseAmount, amount, oddsMultiplier ))
         {
-            return false;
+            return Number.NaN;
         }
 
-        return true;
+        return amount;
+    },
+
+    // you must bind an object to this function as follows:
+    // - crapsTable: reference to the craps table object
+    // - number: the number for the buy bet
+    buyCheck( username, amount )
+    {
+        var commission = amount * .05;
+        this.crapsTable.adjustBalance( username, -commission );
+        this.crapsTable.userMessage( username, "comission: " + this.crapsTable.formatCurrency( commission ));
+        return amount - commission;
     }
 };
