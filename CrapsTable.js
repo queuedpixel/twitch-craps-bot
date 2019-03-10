@@ -40,6 +40,7 @@ module.exports =
     dcomeBets: [],
     dcomeOddsBets: [],
     placeBets: [],
+    dplaceBets: [],
     betResults: new Map(),
     playersShownBets: [],
     point: 0,
@@ -68,6 +69,7 @@ module.exports =
                 this.comeOddsBets[  i ] = new Map();
                 this.dcomeOddsBets[ i ] = new Map();
                 this.placeBets[     i ] = new Map();
+                this.dplaceBets[    i ] = new Map();
             }
         }
 
@@ -173,6 +175,11 @@ module.exports =
                 {
                     availableBalance -= this.placeBets[ i ].get( username );
                 }
+
+                if ( this.dplaceBets[ i ].has( username ))
+                {
+                    availableBalance -= this.dplaceBets[ i ].get( username );
+                }
             }
         }
 
@@ -231,6 +238,20 @@ module.exports =
         }
     },
 
+    dplaceMultiplier( number )
+    {
+        switch( number )
+        {
+            case 4  :
+            case 10 : return 5 / 11;
+            case 5  :
+            case 9  : return 5 / 8;
+            case 6  :
+            case 8  : return 4 / 5;
+            default : throw "Unrecognized number."
+        }
+    },
+
     betWon( bet )
     {
         return bet;
@@ -258,6 +279,14 @@ module.exports =
     placeWon( bet )
     {
         return Math.floor( this.crapsTable.placeMultiplier( this.number ) * bet );
+    },
+
+    // you must bind an object to this function as follows:
+    // - crapsTable: reference to the craps table object
+    // - number: the number for the bet
+    dplaceWon( bet )
+    {
+        return Math.floor( this.crapsTable.dplaceMultiplier( this.number ) * bet );
     },
 
     betLost( bet )
@@ -345,13 +374,18 @@ module.exports =
         // handle seven out
         if ( dieTotal == 7 )
         {
-            // iterate over place bets array; indices: [ 4, 5, 6, 8, 9, 10 ]
-            for ( var i = 4; i <= 10; i++ ) if ( i != 7 ) this.processBets( this.placeBets[ i ], this.betLost );
+            // iterate over place bets arrays; indices: [ 4, 5, 6, 8, 9, 10 ]
+            for ( var i = 4; i <= 10; i++ ) if ( i != 7 )
+            {
+                this.processBets( this.placeBets[ i ], this.betLost );
+                this.processBets( this.dplaceBets[ i ], this.dplaceWon.bind( { crapsTable: this, number: i } ));
+            }
         }
 
         if (( dieTotal >= 4 ) && ( dieTotal != 7 ) && ( dieTotal <= 10 ))
         {
             this.processBets( this.placeBets[ dieTotal ], this.placeWon.bind( { crapsTable: this, number: dieTotal } ));
+            this.processBets( this.dplaceBets[ dieTotal ], this.betLost );
         }
     },
 
@@ -448,6 +482,7 @@ module.exports =
                 if ( this.comeOddsBets[  i ].size > 0 ) return true;
                 if ( this.dcomeOddsBets[ i ].size > 0 ) return true;
                 if ( this.placeBets[     i ].size > 0 ) return true;
+                if ( this.dplaceBets[    i ].size > 0 ) return true;
             }
         }
 
@@ -597,11 +632,21 @@ module.exports =
         }
 
         // iterate over place bets array; indices: [ 4, 5, 6, 8, 9, 10 ]
-        for ( var i = 4; i <= 10; i++ ) if (( i != 7 ) && ( this.placeBets[ i ].has( username )))
+        for ( var i = 4; i <= 10; i++ ) if ( i != 7 )
         {
-            var amount = this.formatCurrency( this.placeBets[ i ].get( username ));
-            this.userMessage( username, "place " + i + ": " + amount );
-            betsFound = true;
+            if ( this.placeBets[ i ].has( username ))
+            {
+                var amount = this.formatCurrency( this.placeBets[ i ].get( username ));
+                this.userMessage( username, "place " + i + ": " + amount );
+                betsFound = true;
+            }
+
+            if ( this.dplaceBets[ i ].has( username ))
+            {
+                var amount = this.formatCurrency( this.dplaceBets[ i ].get( username ));
+                this.userMessage( username, "dplace " + i + ": " + amount );
+                betsFound = true;
+            }
         }
 
         if ( !betsFound ) this.userMessage( username, "you have no bets." );
@@ -652,6 +697,10 @@ module.exports =
         else if ( bet.startsWith( "place" ))
         {
             this.handleNumberBet( username, "place", this.placeBets, bet );
+        }
+        else if ( bet.startsWith( "dplace" ))
+        {
+            this.handleNumberBet( username, "dplace", this.dplaceBets, bet );
         }
         else this.userMessage( username, "unrecognized bet." );
     },

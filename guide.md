@@ -40,3 +40,4 @@ Bets that apply to a specific number (such as the `place` bet) use this format:
 * `come-odds [number]` - Come Odds on the Specified Number
 * `dcome-odds [number]` - Don't Come Odds on the Specified Number
 * `place [number]` - Place on the Specified Number
+* `dplace [number]` - Place to Lose on the Specified Number
