@@ -42,3 +42,4 @@ Bets that apply to a specific number (such as the `place` bet) use this format:
 * `place [number]` - Place on the Specified Number
 * `dplace [number]` - Place to Lose on the Specified Number
 * `buy [number]` - Buy on the Specified Number
+* `lay [number]` - Lay on the Specified Number
