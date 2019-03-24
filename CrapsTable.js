@@ -35,6 +35,7 @@ module.exports =
     passOddsBets: new Map(),
     dpassBets: new Map(),
     dpassOddsBets: new Map(),
+    fieldBets: new Map(),
     comeBets: [],
     comeOddsBets: [],
     dcomeBets: [],
@@ -155,6 +156,7 @@ module.exports =
         if ( this.passOddsBets.has(  username )) availableBalance -= this.passOddsBets.get(  username );
         if ( this.dpassBets.has(     username )) availableBalance -= this.dpassBets.get(     username );
         if ( this.dpassOddsBets.has( username )) availableBalance -= this.dpassOddsBets.get( username );
+        if ( this.fieldBets.has(     username )) availableBalance -= this.fieldBets.get(     username );
 
         // iterate over bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
@@ -274,6 +276,13 @@ module.exports =
     betWon( bet )
     {
         return bet;
+    },
+
+    // you must bind an object to this function as follows:
+    // - multiplier: the multiplier for the bet
+    betWonMultiplier( bet )
+    {
+        return bet * this.multiplier;
     },
 
     // you must bind an object to this function as follows:
@@ -432,6 +441,27 @@ module.exports =
         }
     },
 
+    processFieldBets( dieTotal )
+    {
+        // handle field bet 1x winners
+        if (( dieTotal == 3 ) || ( dieTotal == 4 ) || ( dieTotal == 9 ) || ( dieTotal == 10 ) || ( dieTotal == 11 ))
+        {
+            this.processBets( this.fieldBets, this.betWon );
+        }
+
+        // handle field bet 2x winners
+        if ( dieTotal == 2 ) this.processBets( this.fieldBets, this.betWonMultiplier.bind( { multiplier: 2 } ));
+
+        // handle field bet 3x winners
+        if ( dieTotal == 12 ) this.processBets( this.fieldBets, this.betWonMultiplier.bind( { multiplier: 3 } ));
+
+        // handle field bet losers
+        if (( dieTotal == 5 ) || ( dieTotal == 6 ) || ( dieTotal == 7 ) || ( dieTotal == 8 ))
+        {
+            this.processBets( this.fieldBets, this.betLost );
+        }
+    },
+
     // update the craps table based on the results of the specifed roll
     processRoll( die1, die2 )
     {
@@ -444,6 +474,7 @@ module.exports =
         this.onMessage( pointDisplay + ", Roll: " + die1 + " " + die2 + " (" + dieTotal + ")" );
         this.processComeBets( dieTotal );
         this.processNumberBets( dieTotal );
+        this.processFieldBets( dieTotal );
 
         // if we have no point currently ...
         if ( this.point == 0 )
@@ -512,6 +543,7 @@ module.exports =
         if ( this.passOddsBets.size  > 0 ) return true;
         if ( this.dpassBets.size     > 0 ) return true;
         if ( this.dpassOddsBets.size > 0 ) return true;
+        if ( this.fieldBets.size     > 0 ) return true;
 
         // iterate over bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
@@ -635,6 +667,7 @@ module.exports =
         if ( this.betDispaly( username, "pass-odds",  this.passOddsBets  )) betsFound = true;
         if ( this.betDispaly( username, "dpass",      this.dpassBets     )) betsFound = true;
         if ( this.betDispaly( username, "dpass-odds", this.dpassOddsBets )) betsFound = true;
+        if ( this.betDispaly( username, "field",      this.fieldBets     )) betsFound = true;
 
         // iterate over come bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
@@ -684,6 +717,10 @@ module.exports =
         else if ( bet.startsWith( "dpass" ))
         {
             this.handleBet( username, "dpass", this.dpassBets, this.dpassCheck.bind( this ), bet );
+        }
+        else if ( bet.startsWith( "field" ))
+        {
+            this.handleBet( username, "field", this.fieldBets, undefined, bet );
         }
         else if ( bet.startsWith( "come-odds" ))
         {

@@ -36,6 +36,7 @@ Bets that apply to a specific number (such as the `place` bet) use this format:
 * `pass-odds` - Pass Odds
 * `dpass` - Don't Pass
 * `dpass-odds` - Don't Pass Odds
+* `field` - Field
 * `come` - Come
 * `come-odds [number]` - Come Odds on the Specified Number
 * `dcome` - Don't Come
