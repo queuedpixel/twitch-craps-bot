@@ -44,6 +44,7 @@ module.exports =
     dplaceBets: [],
     buyBets: [],
     layBets: [],
+    hardBets: [],
     betResults: new Map(),
     playersShownBets: [],
     point: 0,
@@ -77,6 +78,9 @@ module.exports =
                 this.layBets[       i ] = new Map();
             }
         }
+
+        // initialize hard bets array; indices: [ 4, 6, 8, 10 ]
+        for ( var i = 4; i <= 10; i += 2 ) this.hardBets[ i ] = new Map();
 
         setInterval( this.crapsTimer.bind( this ), 1000 );
 
@@ -137,6 +141,12 @@ module.exports =
         return "§" + ( amount / 100 ).toLocaleString( "en-US", { minimumFractionDigits: 2 } );
     },
 
+    getBet( username, betMap )
+    {
+        if ( betMap.has( username )) return betMap.get( username );
+        return 0;
+    },
+
     getBalance( username )
     {
         if ( !this.playerBalances.has( username ))
@@ -152,52 +162,32 @@ module.exports =
     getAvailableBalance( username )
     {
         var availableBalance = this.getBalance( username );
-        if ( this.passBets.has(      username )) availableBalance -= this.passBets.get(      username );
-        if ( this.passOddsBets.has(  username )) availableBalance -= this.passOddsBets.get(  username );
-        if ( this.dpassBets.has(     username )) availableBalance -= this.dpassBets.get(     username );
-        if ( this.dpassOddsBets.has( username )) availableBalance -= this.dpassOddsBets.get( username );
-        if ( this.fieldBets.has(     username )) availableBalance -= this.fieldBets.get(     username );
+        availableBalance -= this.getBet( username, this.passBets      );
+        availableBalance -= this.getBet( username, this.passOddsBets  );
+        availableBalance -= this.getBet( username, this.dpassBets     );
+        availableBalance -= this.getBet( username, this.dpassOddsBets );
+        availableBalance -= this.getBet( username, this.fieldBets     );
 
         // iterate over bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
         {
-            if ( this.comeBets[  i ].has( username )) availableBalance -= this.comeBets[  i ].get( username );
-            if ( this.dcomeBets[ i ].has( username )) availableBalance -= this.dcomeBets[ i ].get( username );
+            availableBalance -= this.getBet( username, this.comeBets[  i ] );
+            availableBalance -= this.getBet( username, this.dcomeBets[ i ] );
 
             // skip index 0
             if ( i != 0 )
             {
-                if ( this.comeOddsBets[ i ].has( username ))
-                {
-                    availableBalance -= this.comeOddsBets[ i ].get( username );
-                }
-
-                if ( this.dcomeOddsBets[ i ].has( username ))
-                {
-                    availableBalance -= this.dcomeOddsBets[ i ].get( username );
-                }
-
-                if ( this.placeBets[ i ].has( username ))
-                {
-                    availableBalance -= this.placeBets[ i ].get( username );
-                }
-
-                if ( this.dplaceBets[ i ].has( username ))
-                {
-                    availableBalance -= this.dplaceBets[ i ].get( username );
-                }
-
-                if ( this.buyBets[ i ].has( username ))
-                {
-                    availableBalance -= this.buyBets[ i ].get( username );
-                }
-
-                if ( this.layBets[ i ].has( username ))
-                {
-                    availableBalance -= this.layBets[ i ].get( username );
-                }
+                availableBalance -= this.getBet( username, this.comeOddsBets[  i ] );
+                availableBalance -= this.getBet( username, this.dcomeOddsBets[ i ] );
+                availableBalance -= this.getBet( username, this.placeBets[     i ] );
+                availableBalance -= this.getBet( username, this.dplaceBets[    i ] );
+                availableBalance -= this.getBet( username, this.buyBets[       i ] );
+                availableBalance -= this.getBet( username, this.layBets[       i ] );
             }
         }
+
+        // iterate over hard bets array; indices: [ 4, 6, 8, 10 ]
+        for ( var i = 4; i <= 10; i += 2 ) availableBalance -= this.getBet( username, this.hardBets[ i ] );
 
         return availableBalance;
     },
@@ -462,6 +452,44 @@ module.exports =
         }
     },
 
+    processHardNumber( die1, die2, number )
+    {
+        // skip if we're processing a number other than what was rolled
+        if ( number != die1 + die2 ) return;
+
+        var multiplier = 0;
+        switch( number )
+        {
+            case 4  :
+            case 10 : multiplier = 7; break;
+            case 6  :
+            case 8  : multiplier = 9; break;
+            default : throw "Unrecognized number."
+        }
+
+        if ( die1 == die2 )
+        {
+            this.processBets( this.hardBets[ number ], this.betWonMultiplier.bind( { multiplier: multiplier } ));
+        }
+        else this.processBets( this.hardBets[ number ], this.betLost );
+    },
+
+    processHardBets( die1, die2 )
+    {
+        if ( die1 + die2 == 7 )
+        {
+            // rolling a seven causes all hard bets to lose
+            // iterate over hard bets array; indices: [ 4, 6, 8, 10 ]
+            for ( var i = 4; i <= 10; i += 2 ) this.processBets( this.hardBets[ i ], this.betLost );
+        }
+        else
+        {
+            // process each individual hard bet
+            // iterate over hard bets array; indices: [ 4, 6, 8, 10 ]
+            for ( var i = 4; i <= 10; i += 2 ) this.processHardNumber( die1, die2, i );
+        }
+    },
+
     // update the craps table based on the results of the specifed roll
     processRoll( die1, die2 )
     {
@@ -475,6 +503,7 @@ module.exports =
         this.processComeBets( dieTotal );
         this.processNumberBets( dieTotal );
         this.processFieldBets( dieTotal );
+        this.processHardBets( die1, die2 );
 
         // if we have no point currently ...
         if ( this.point == 0 )
@@ -562,6 +591,9 @@ module.exports =
                 if ( this.layBets[       i ].size > 0 ) return true;
             }
         }
+
+        // iterate over hard bets array; indices: [ 4, 6, 8, 10 ]
+        for ( var i = 4; i <= 10; i += 2 ) if ( this.hardBets[ i ].size > 0 ) return true;
 
         return false;
     },
@@ -689,6 +721,12 @@ module.exports =
             if ( this.betDispaly( username, "lay "    + i, this.layBets[    i ] )) betsFound = true;
         }
 
+        // iterate over hard bets array; indices: [ 4, 6, 8, 10 ]
+        for ( var i = 4; i <= 10; i += 2 )
+        {
+            if ( this.betDispaly( username, "hard " + i, this.hardBets[ i ] )) betsFound = true;
+        }
+
         if ( !betsFound ) this.userMessage( username, "you have no bets." );
     },
 
@@ -738,22 +776,11 @@ module.exports =
         {
             this.handleBet( username, "dcome", this.dcomeBets[ 0 ], this.pointCheck.bind( this ), bet );
         }
-        else if ( bet.startsWith( "place" ))
-        {
-            this.handleNumberBet( username, "place", this.placeBets, bet );
-        }
-        else if ( bet.startsWith( "dplace" ))
-        {
-            this.handleNumberBet( username, "dplace", this.dplaceBets, bet );
-        }
-        else if ( bet.startsWith( "buy" ))
-        {
-            this.handleNumberBet( username, "buy", this.buyBets, bet );
-        }
-        else if ( bet.startsWith( "lay" ))
-        {
-            this.handleNumberBet( username, "lay", this.layBets, bet );
-        }
+        else if ( bet.startsWith( "place"  )) this.handleNumberBet( username, "place",  this.placeBets,  bet );
+        else if ( bet.startsWith( "dplace" )) this.handleNumberBet( username, "dplace", this.dplaceBets, bet );
+        else if ( bet.startsWith( "buy"    )) this.handleNumberBet( username, "buy",    this.buyBets,    bet );
+        else if ( bet.startsWith( "lay"    )) this.handleNumberBet( username, "lay",    this.layBets,    bet );
+        else if ( bet.startsWith( "hard" )) this.handleHardBet( username, bet );
         else this.userMessage( username, "unrecognized bet." );
     },
 
@@ -772,7 +799,29 @@ module.exports =
             return Number.NaN;
         }
 
+        return number;
+    },
+
+    getBetPoint( username, type, bet )
+    {
+        number = this.getBetNumber( username, type, bet );
+        if ( Number.isNaN( number )) return Number.NaN;
+
         if (( number < 4 ) || ( number == 7 ) || ( number > 10 ))
+        {
+            this.userMessage( username, "invalid number." );
+            return Number.NaN;
+        }
+
+        return number;
+    },
+
+    getBetHardPoint( username, type, bet )
+    {
+        number = this.getBetPoint( username, type, bet );
+        if ( Number.isNaN( number )) return Number.NaN;
+
+        if (( number == 5 ) || ( number == 9 ))
         {
             this.userMessage( username, "invalid number." );
             return Number.NaN;
@@ -783,7 +832,7 @@ module.exports =
 
     handleComeOddsBet( username, type, comeBets, comeOddsBets, bet, isLight )
     {
-        number = this.getBetNumber( username, type, bet );
+        number = this.getBetPoint( username, type, bet );
         if ( Number.isNaN( number )) return;
         var checkParams = { crapsTable: this, comeBets: comeBets, number: number, isLight: isLight }
         var checkFunction = this.comeOddsCheck.bind( checkParams );
@@ -792,9 +841,17 @@ module.exports =
 
     handleNumberBet( username, type, bets, bet )
     {
-        number = this.getBetNumber( username, type, bet );
+        number = this.getBetPoint( username, type, bet );
         if ( Number.isNaN( number )) return;
         this.handleBet( username, type + " " + number, bets[ number ], undefined, bet );
+    },
+
+    handleHardBet( username, bet )
+    {
+        var type = "hard";
+        number = this.getBetHardPoint( username, type, bet );
+        if ( Number.isNaN( number )) return;
+        this.handleBet( username, type + " " + number, this.hardBets[ number ], undefined, bet );
     },
 
     handleBet( username, type, bets, checkFunction, bet )

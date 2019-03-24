@@ -45,3 +45,4 @@ Bets that apply to a specific number (such as the `place` bet) use this format:
 * `dplace [number]` - Place to Lose on the Specified Number
 * `buy [number]` - Buy on the Specified Number; commission is charged when bet is won
 * `lay [number]` - Lay on the Specified Number; commission is charged when bet is won
+* `hard [number]` - Hard Way on the Specified Number
