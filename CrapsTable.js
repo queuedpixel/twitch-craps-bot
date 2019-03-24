@@ -333,7 +333,7 @@ module.exports =
         return -bet;
     },
 
-    processBets( bets, betResult, clearBets )
+    processBets( bets, betResult )
     {
         for ( let username of bets.keys() )
         {
@@ -343,18 +343,18 @@ module.exports =
             this.betResults.set( username, this.betResults.get( username ) + result );
         }
 
-        if ( clearBets ) bets.clear();
+        bets.clear();
     },
 
     processComeBetNumber( dieTotal )
     {
         if (( dieTotal >= 4 ) && ( dieTotal != 7 ) && ( dieTotal <= 10 ))
         {
-            this.processBets( this.comeBets[      dieTotal ], this.betWon,  true );
-            this.processBets( this.dcomeBets[     dieTotal ], this.betLost, true );
-            this.processBets( this.dcomeOddsBets[ dieTotal ], this.betLost, true );
+            this.processBets( this.comeBets[      dieTotal ], this.betWon  );
+            this.processBets( this.dcomeBets[     dieTotal ], this.betLost );
+            this.processBets( this.dcomeOddsBets[ dieTotal ], this.betLost );
             this.processBets( this.comeOddsBets[  dieTotal ],
-                              this.lightOddsWon.bind( { crapsTable: this, number: dieTotal } ), true );
+                              this.lightOddsWon.bind( { crapsTable: this, number: dieTotal } ));
 
             // copy come bets over to their respective number
             for ( let username of this.comeBets[ 0 ].keys() )
@@ -382,26 +382,25 @@ module.exports =
             // iterate over come bets arrays; indices: [ 4, 5, 6, 8, 9, 10 ]
             for ( var i = 4; i <= 10; i++ ) if ( i != 7 )
             {
-                this.processBets( this.comeBets[      i ], this.betLost, true );
-                this.processBets( this.comeOddsBets[  i ], this.betLost, true );
-                this.processBets( this.dcomeBets[     i ], this.betWon,  true );
-                this.processBets( this.dcomeOddsBets[ i ],
-                                  this.darkOddsWon.bind( { crapsTable: this, number: i } ), true );
+                this.processBets( this.comeBets[      i ], this.betLost );
+                this.processBets( this.comeOddsBets[  i ], this.betLost );
+                this.processBets( this.dcomeBets[     i ], this.betWon  );
+                this.processBets( this.dcomeOddsBets[ i ], this.darkOddsWon.bind( { crapsTable: this, number: i } ));
             }
         }
 
         // check to see if we have a come bet winner
         if (( dieTotal == 7 ) || ( dieTotal == 11 ))
         {
-            this.processBets( this.comeBets[  0 ], this.betWon,  true );
-            this.processBets( this.dcomeBets[ 0 ], this.betLost, true );
+            this.processBets( this.comeBets[  0 ], this.betWon  );
+            this.processBets( this.dcomeBets[ 0 ], this.betLost );
         }
 
         // check to see if we have a come bet loser
         if (( dieTotal == 2 ) || ( dieTotal == 3 ) || ( dieTotal == 12 ))
         {
-            this.processBets( this.comeBets[ 0 ], this.betLost, true );
-            if ( dieTotal != 12 ) this.processBets( this.dcomeBets[ 0 ], this.betWon, true );
+            this.processBets( this.comeBets[ 0 ], this.betLost );
+            if ( dieTotal != 12 ) this.processBets( this.dcomeBets[ 0 ], this.betWon );
         }
 
         // migrate come and don't come bets to their specific numbers
@@ -416,22 +415,20 @@ module.exports =
             // iterate over place bets arrays; indices: [ 4, 5, 6, 8, 9, 10 ]
             for ( var i = 4; i <= 10; i++ ) if ( i != 7 )
             {
-                this.processBets( this.placeBets[  i ], this.betLost, true );
-                this.processBets( this.buyBets[    i ], this.betLost, true );
-                this.processBets( this.dplaceBets[ i ], this.dplaceWon.bind( { crapsTable: this, number: i } ), true );
-                this.processBets( this.layBets[ i ], this.layWon.bind( { crapsTable: this, number: i } ), false );
+                this.processBets( this.placeBets[  i ], this.betLost );
+                this.processBets( this.buyBets[    i ], this.betLost );
+                this.processBets( this.dplaceBets[ i ], this.dplaceWon.bind( { crapsTable: this, number: i } ));
+                this.processBets( this.layBets[    i ], this.layWon.bind(    { crapsTable: this, number: i } ));
             }
         }
 
         // handle hitting a specific number
         if (( dieTotal >= 4 ) && ( dieTotal != 7 ) && ( dieTotal <= 10 ))
         {
-            this.processBets( this.dplaceBets[ dieTotal ], this.betLost, true );
-            this.processBets( this.layBets[    dieTotal ], this.betLost, true );
-            this.processBets(
-                    this.placeBets[ dieTotal ], this.placeWon.bind( { crapsTable: this, number: dieTotal } ), true );
-            this.processBets(
-                    this.buyBets[ dieTotal ], this.buyWon.bind( { crapsTable: this, number: dieTotal } ), false );
+            this.processBets( this.dplaceBets[ dieTotal ], this.betLost );
+            this.processBets( this.layBets[    dieTotal ], this.betLost );
+            this.processBets( this.placeBets[ dieTotal ], this.placeWon.bind( { crapsTable: this, number: dieTotal } ));
+            this.processBets( this.buyBets[   dieTotal ], this.buyWon.bind(   { crapsTable: this, number: dieTotal } ));
         }
     },
 
@@ -454,15 +451,15 @@ module.exports =
             // check to see if we have a pass bet winner
             if (( dieTotal == 7 ) || ( dieTotal == 11 ))
             {
-                this.processBets( this.passBets,  this.betWon,  true );
-                this.processBets( this.dpassBets, this.betLost, true );
+                this.processBets( this.passBets,  this.betWon  );
+                this.processBets( this.dpassBets, this.betLost );
             }
 
             // check to see if we have a pass bet loser
             if (( dieTotal == 2 ) || ( dieTotal == 3 ) || ( dieTotal == 12 ))
             {
-                this.processBets( this.passBets, this.betLost, true );
-                if ( dieTotal != 12 ) this.processBets( this.dpassBets, this.betWon, true );
+                this.processBets( this.passBets, this.betLost );
+                if ( dieTotal != 12 ) this.processBets( this.dpassBets, this.betWon );
             }
 
             // check to see if we've established a point
@@ -476,11 +473,10 @@ module.exports =
         // check to see if the point was made
         else if ( this.point == dieTotal )
         {
-            this.processBets( this.passBets,      this.betWon,  true );
-            this.processBets( this.dpassBets,     this.betLost, true );
-            this.processBets( this.dpassOddsBets, this.betLost, true );
-            this.processBets( this.passOddsBets,
-                              this.lightOddsWon.bind( { crapsTable: this, number: this.point } ), true );
+            this.processBets( this.passBets,      this.betWon  );
+            this.processBets( this.dpassBets,     this.betLost );
+            this.processBets( this.dpassOddsBets, this.betLost );
+            this.processBets( this.passOddsBets,  this.lightOddsWon.bind( { crapsTable: this, number: this.point } ));
             this.point = 0;
             this.onMessage( "The point was made." );
         }
@@ -488,11 +484,10 @@ module.exports =
         // check to see if we sevened out
         else if ( dieTotal == 7 )
         {
-            this.processBets( this.passBets,      this.betLost, true );
-            this.processBets( this.passOddsBets,  this.betLost, true );
-            this.processBets( this.dpassBets,     this.betWon,  true );
-            this.processBets( this.dpassOddsBets,
-                              this.darkOddsWon.bind( { crapsTable: this, number: this.point } ), true );
+            this.processBets( this.passBets,      this.betLost );
+            this.processBets( this.passOddsBets,  this.betLost );
+            this.processBets( this.dpassBets,     this.betWon  );
+            this.processBets( this.dpassOddsBets, this.darkOddsWon.bind( { crapsTable: this, number: this.point } ));
             this.point = 0;
             this.onMessage( "Seven out." );
         }
