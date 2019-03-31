@@ -36,6 +36,10 @@ Bets that apply to a specific die roll (such as the `hop` bet) use this format:
 
 `!craps bet [type] [die1] [die2] [amount]`
 
+Maximum odds is 10x.
+
+### Available Bets
+
 * `pass` - Pass
 * `pass-odds` - Pass Odds
 * `dpass` - Don't Pass
