@@ -550,7 +550,7 @@ module.exports =
         // print out the roll
         var dieTotal = die1 + die2;
         var pointDisplay = this.point == 0 ? "No Point" : "Point: " + this.point;
-        this.onMessage( pointDisplay + ", Roll: " + die1 + " " + die2 + " (" + dieTotal + ")" );
+        this.onMessage( "GivePLZ " + pointDisplay + ", Roll: " + die1 + " " + die2 + " (" + dieTotal + ") TakeNRG" );
         this.processComeBets( dieTotal );
         this.processNumberBets( dieTotal );
         this.processFieldBets( dieTotal );
@@ -578,7 +578,7 @@ module.exports =
             if (( dieTotal >= 4 ) && ( dieTotal != 7 ) && ( dieTotal <= 10 ))
             {
                 this.point = dieTotal;
-                this.onMessage( "New point established: " + this.point );
+                this.onMessage( "GivePLZ Point established: " + this.point + " TakeNRG" );
             }
         }
 
@@ -590,7 +590,7 @@ module.exports =
             this.processBets( this.dpassOddsBets, this.betLost );
             this.processBets( this.passOddsBets,  this.lightOddsWon.bind( { crapsTable: this, number: this.point } ));
             this.point = 0;
-            this.onMessage( "The point was made." );
+            this.onMessage( "GivePLZ The point was made. TakeNRG" );
         }
 
         // check to see if we sevened out
@@ -601,7 +601,7 @@ module.exports =
             this.processBets( this.dpassBets,     this.betWon  );
             this.processBets( this.dpassOddsBets, this.darkOddsWon.bind( { crapsTable: this, number: this.point } ));
             this.point = 0;
-            this.onMessage( "Seven out." );
+            this.onMessage( "GivePLZ Seven out. TakeNRG" );
         }
 
         // if there are no bets and no point: check minimum balances, save player balances, and stop the timer
