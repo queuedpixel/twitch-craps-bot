@@ -33,6 +33,6 @@ module.exports =
     messageInterval : 2000,           // interval between sending messages; milliseconds
     rollingDelay    : 60,             // delay for rolling after the last bet is placed; seconds
     minimumBalance  : 100,            // minimum balance for players
-    maxOdds         : 10,             // maximum odds that can be placed; multiple of (don't) pass/come bets
+    maxOdds         : 100,            // maximum odds that can be placed; multiple of (don't) pass/come bets
     debug           : false           // whether or not to enable debugging features
 };
