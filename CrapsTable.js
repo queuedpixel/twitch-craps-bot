@@ -36,6 +36,7 @@ module.exports =
     dpassBets: new Map(),
     dpassOddsBets: new Map(),
     fieldBets: new Map(),
+    anyCrapsBets: new Map(),
     comeBets: [],
     comeOddsBets: [],
     dcomeBets: [],
@@ -167,6 +168,7 @@ module.exports =
         availableBalance -= this.getBet( username, this.dpassBets     );
         availableBalance -= this.getBet( username, this.dpassOddsBets );
         availableBalance -= this.getBet( username, this.fieldBets     );
+        availableBalance -= this.getBet( username, this.anyCrapsBets  );
 
         // iterate over bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
@@ -505,6 +507,13 @@ module.exports =
         this.processFieldBets( dieTotal );
         this.processHardBets( die1, die2 );
 
+        // handle any-craps bets
+        if (( dieTotal == 2 ) || ( dieTotal == 3 ) || ( dieTotal == 12 ))
+        {
+            this.processBets( this.anyCrapsBets, this.betWonMultiplier.bind( { multiplier: 7.5 } ));
+        }
+        else this.processBets( this.anyCrapsBets, this.betLost );
+
         // if we have no point currently ...
         if ( this.point == 0 )
         {
@@ -573,6 +582,7 @@ module.exports =
         if ( this.dpassBets.size     > 0 ) return true;
         if ( this.dpassOddsBets.size > 0 ) return true;
         if ( this.fieldBets.size     > 0 ) return true;
+        if ( this.anyCrapsBets.size  > 0 ) return true;
 
         // iterate over bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
@@ -700,6 +710,7 @@ module.exports =
         if ( this.betDispaly( username, "dpass",      this.dpassBets     )) betsFound = true;
         if ( this.betDispaly( username, "dpass-odds", this.dpassOddsBets )) betsFound = true;
         if ( this.betDispaly( username, "field",      this.fieldBets     )) betsFound = true;
+        if ( this.betDispaly( username, "any-craps",  this.anyCrapsBets  )) betsFound = true;
 
         // iterate over come bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
@@ -759,6 +770,10 @@ module.exports =
         else if ( bet.startsWith( "field" ))
         {
             this.handleBet( username, "field", this.fieldBets, undefined, bet );
+        }
+        else if ( bet.startsWith( "any-craps" ))
+        {
+            this.handleBet( username, "any-craps", this.anyCrapsBets, undefined, bet );
         }
         else if ( bet.startsWith( "come-odds" ))
         {
