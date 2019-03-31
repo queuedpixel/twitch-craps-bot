@@ -47,6 +47,7 @@ module.exports =
     buyBets: [],
     layBets: [],
     hardBets: [],
+    hopBets: [],
     betResults: new Map(),
     playersShownBets: [],
     point: 0,
@@ -83,6 +84,13 @@ module.exports =
 
         // initialize hard bets array; indices: [ 4, 6, 8, 10 ]
         for ( var i = 4; i <= 10; i += 2 ) this.hardBets[ i ] = new Map();
+
+        // initialize hop bets array
+        for ( var i = 1; i <= 6; i++ )
+        {
+            this.hopBets[ i ] = [];
+            for ( var j = i; j <= 6; j++ ) this.hopBets[ i ][ j ] = new Map();
+        }
 
         setInterval( this.crapsTimer.bind( this ), 1000 );
 
@@ -192,6 +200,12 @@ module.exports =
 
         // iterate over hard bets array; indices: [ 4, 6, 8, 10 ]
         for ( var i = 4; i <= 10; i += 2 ) availableBalance -= this.getBet( username, this.hardBets[ i ] );
+
+        // iterate over hop bets array
+        for ( var i = 1; i <= 6; i++ ) for ( var j = i; j <= 6; j++ )
+        {
+            availableBalance -= this.getBet( username, this.hopBets[ i ][ j ] );
+        }
 
         return availableBalance;
     },
@@ -494,6 +508,39 @@ module.exports =
         }
     },
 
+    processHopBets( die1, die2 )
+    {
+        var dieTotal = die1 + die2;
+
+        // handle any-craps bets
+        if (( dieTotal == 2 ) || ( dieTotal == 3 ) || ( dieTotal == 12 ))
+        {
+            this.processBets( this.anyCrapsBets, this.betWonMultiplier.bind( { multiplier: 7.5 } ));
+        }
+        else this.processBets( this.anyCrapsBets, this.betLost );
+
+        // handle any-seven bets
+        if ( dieTotal == 7 ) this.processBets( this.anySevenBets, this.betWonMultiplier.bind( { multiplier: 4 } ));
+        else this.processBets( this.anySevenBets, this.betLost );
+
+        // ensure that we access our hop bet array with the lower die as the first index
+        var i = die1 < die2 ? die1 : die2;
+        var j = die1 < die2 ? die2 : die1;
+
+        // determine multiplier based on "hard" or "easy" hop bets
+        var multiplier = ( i == j ) ? 33 : 16;
+
+        // hop bets for the specific die roll win
+        this.processBets( this.hopBets[ i ][ j ], this.betWonMultiplier.bind( { multiplier: multiplier } ));
+
+        // iterate over hop bets array
+        for ( var i = 1; i <= 6; i++ ) for ( var j = i; j <= 6; j++ )
+        {
+            // all other hop bets lose
+            this.processBets( this.hopBets[ i ][ j ], this.betLost );
+        }
+    },
+
     // update the craps table based on the results of the specifed roll
     processRoll( die1, die2 )
     {
@@ -508,17 +555,7 @@ module.exports =
         this.processNumberBets( dieTotal );
         this.processFieldBets( dieTotal );
         this.processHardBets( die1, die2 );
-
-        // handle any-craps bets
-        if (( dieTotal == 2 ) || ( dieTotal == 3 ) || ( dieTotal == 12 ))
-        {
-            this.processBets( this.anyCrapsBets, this.betWonMultiplier.bind( { multiplier: 7.5 } ));
-        }
-        else this.processBets( this.anyCrapsBets, this.betLost );
-
-        // handle any-seven bets
-        if ( dieTotal == 7 ) this.processBets( this.anySevenBets, this.betWonMultiplier.bind( { multiplier: 4 } ));
-        else this.processBets( this.anySevenBets, this.betLost );
+        this.processHopBets( die1, die2 );
 
         // if we have no point currently ...
         if ( this.point == 0 )
@@ -612,6 +649,12 @@ module.exports =
         // iterate over hard bets array; indices: [ 4, 6, 8, 10 ]
         for ( var i = 4; i <= 10; i += 2 ) if ( this.hardBets[ i ].size > 0 ) return true;
 
+        // iterate over hop bets array
+        for ( var i = 1; i <= 6; i++ ) for ( var j = i; j <= 6; j++ )
+        {
+            if ( this.hopBets[ i ][ j ].size > 0 ) return true;
+        }
+
         return false;
     },
 
@@ -659,7 +702,7 @@ module.exports =
         var values = data.split( " " );
         if ( values.length != 2 )
         {
-            this.userMessage( username, "you must specify two values." );
+            this.userMessage( username, "you must specify two die values." );
             return;
         }
 
@@ -674,7 +717,7 @@ module.exports =
 
         if (( die1 < 1 ) || ( die1 > 6 ) || ( die2 < 1 ) || ( die2 > 6 ))
         {
-            this.userMessage( username, "values must be between 1 and 6." );
+            this.userMessage( username, "die values must be between 1 and 6." );
             return;
         }
 
@@ -746,6 +789,12 @@ module.exports =
             if ( this.betDispaly( username, "hard " + i, this.hardBets[ i ] )) betsFound = true;
         }
 
+        // iterate over hop bets array
+        for ( var i = 1; i <= 6; i++ ) for ( var j = i; j <= 6; j++ )
+        {
+            if ( this.betDispaly( username, "hop " + i + " " + j, this.hopBets[ i ][ j ] )) betsFound = true;
+        }
+
         if ( !betsFound ) this.userMessage( username, "you have no bets." );
     },
 
@@ -807,7 +856,8 @@ module.exports =
         else if ( bet.startsWith( "dplace" )) this.handleNumberBet( username, "dplace", this.dplaceBets, bet );
         else if ( bet.startsWith( "buy"    )) this.handleNumberBet( username, "buy",    this.buyBets,    bet );
         else if ( bet.startsWith( "lay"    )) this.handleNumberBet( username, "lay",    this.layBets,    bet );
-        else if ( bet.startsWith( "hard" )) this.handleHardBet( username, bet );
+        else if ( bet.startsWith( "hard"   )) this.handleHardBet( username, bet );
+        else if ( bet.startsWith( "hop"    )) this.handleHopBet( username, bet );
         else this.userMessage( username, "unrecognized bet." );
     },
 
@@ -879,6 +929,39 @@ module.exports =
         number = this.getBetHardPoint( username, type, bet );
         if ( Number.isNaN( number )) return;
         this.handleBet( username, type + " " + number, this.hardBets[ number ], undefined, bet );
+    },
+
+    handleHopBet( username, bet )
+    {
+        var type = "hop";
+        var data = bet.substr( type.length ).trim();
+        var values = data.split( " " );
+        if ( values.length < 2 )
+        {
+            this.userMessage( username, "you must specify two die values." );
+            return;
+        }
+
+        var die1 = parseInt( values[ 0 ] );
+        var die2 = parseInt( values[ 1 ] );
+
+        if (( Number.isNaN( die1 )) || ( Number.isNaN( die2 )))
+        {
+            this.userMessage( username, "unable to parse die values." );
+            return;
+        }
+
+        if (( die1 < 1 ) || ( die1 > 6 ) || ( die2 < 1 ) || ( die2 > 6 ))
+        {
+            this.userMessage( username, "die values must be between 1 and 6." );
+            return;
+        }
+
+        // ensure that we access our hop bet array with the lower die as the first index
+        var i = die1 < die2 ? die1 : die2;
+        var j = die1 < die2 ? die2 : die1;
+
+        this.handleBet( username, type + " " + die1 + " " + die2, this.hopBets[ i ][ j ], undefined, bet );
     },
 
     handleBet( username, type, bets, checkFunction, bet )

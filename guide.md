@@ -32,6 +32,10 @@ Bets that apply to a specific number (such as the `place` bet) use this format:
 
 `!craps bet [type] [number] [amount]`
 
+Bets that apply to a specific die roll (such as the `hop` bet) use this format:
+
+`!craps bet [type] [die1] [die2] [amount]`
+
 * `pass` - Pass
 * `pass-odds` - Pass Odds
 * `dpass` - Don't Pass
@@ -48,3 +52,4 @@ Bets that apply to a specific number (such as the `place` bet) use this format:
 * `buy [number]` - Buy on the Specified Number; commission is charged when bet is won
 * `lay [number]` - Lay on the Specified Number; commission is charged when bet is won
 * `hard [number]` - Hard Way on the Specified Number
+* `hop [die1] [die2]` - Hop Bet on the Specified Die Roll
