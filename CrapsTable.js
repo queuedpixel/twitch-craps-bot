@@ -214,8 +214,8 @@ module.exports =
         for ( let username of this.betResults.keys() )
         {
             var result = this.betResults.get( username );
-            if ( result > 0 ) this.userMessage( username, "won "  + this.formatCurrency(  result ));
-            if ( result < 0 ) this.userMessage( username, "lost " + this.formatCurrency( -result ));
+            if ( result > 0 ) this.userMessage( username, "won: "  + this.formatCurrency(  result ));
+            if ( result < 0 ) this.userMessage( username, "lost: " + this.formatCurrency( -result ));
         }
 
         this.betResults.clear();
@@ -879,7 +879,7 @@ module.exports =
         if ( amount > availableBalance )
         {
             this.userMessage(
-                    username, "bet exceeds your available balance of " + this.formatCurrency( availableBalance ));
+                    username, "bet exceeds your available balance: " + this.formatCurrency( availableBalance ));
             return;
         }
 
@@ -913,7 +913,7 @@ module.exports =
         var maxBet = baseAmount * config.maxOdds * oddsMultiplier;
         if ( oddsAmount > maxBet )
         {
-            this.userMessage( username, "bet exceeds your maximum odds bet of " + this.formatCurrency( maxBet ));
+            this.userMessage( username, "bet exceeds your maximum odds bet: " + this.formatCurrency( maxBet ));
             return false;
         }
 
