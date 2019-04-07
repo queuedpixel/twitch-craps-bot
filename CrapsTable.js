@@ -38,6 +38,8 @@ module.exports =
     fieldBets: new Map(),
     anyCrapsBets: new Map(),
     anySevenBets: new Map(),
+    fireBets: new Map(),
+    firePoints: [],
     comeBets: [],
     comeOddsBets: [],
     dcomeBets: [],
@@ -64,8 +66,16 @@ module.exports =
         this.onMessage( "@" + username + ", " + message );
     },
 
+    resetFirePoints()
+    {
+        // iterate over fire points array; indices: [ 4, 5, 6, 8, 9, 10 ]
+        for ( var i = 4; i <= 10; i++ ) if ( i != 7 ) this.firePoints[ i ] = false;
+    },
+
     init()
     {
+        this.resetFirePoints();
+
         // initialize bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
         {
@@ -193,6 +203,7 @@ module.exports =
         availableBalance -= this.getBet( username, this.fieldBets     );
         availableBalance -= this.getBet( username, this.anyCrapsBets  );
         availableBalance -= this.getBet( username, this.anySevenBets  );
+        availableBalance -= this.getBet( username, this.fireBets      );
 
         // iterate over bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
@@ -555,6 +566,34 @@ module.exports =
         }
     },
 
+    firePointCount()
+    {
+        // count up fire points by iterating over fire points array; indices: [ 4, 5, 6, 8, 9, 10 ]
+        var result = 0;
+        for ( var i = 4; i <= 10; i++ ) if ( i != 7 ) if ( this.firePoints[ i ] ) result++;
+        return result;
+    },
+
+    // display which fire points have been made
+    displayFirePoints()
+    {
+        var firePointCount = this.firePointCount();
+        if ( firePointCount == 6 ) this.onMessage( "GivePLZ All six fire points made! TakeNRG" );
+        else if ( firePointCount > 0 )
+        {
+            var firePointDisplay = "";
+
+            // iterate over fire points array; indices: [ 4, 5, 6, 8, 9, 10 ]
+            for ( var i = 4; i <= 10; i++ ) if ( i != 7 ) if ( this.firePoints[ i ] )
+            {
+                if ( firePointDisplay.length > 0 ) firePointDisplay += ", ";
+                firePointDisplay += i;
+            }
+
+            this.onMessage( "GivePLZ Fire points: " + firePointDisplay + " TakeNRG" );
+        }
+    },
+
     // update the craps table based on the results of the specifed roll
     processRoll( die1, die2 )
     {
@@ -600,12 +639,24 @@ module.exports =
         // check to see if the point was made
         else if ( this.point == dieTotal )
         {
+            // if fire bets exist, mark the fire point
+            if ( this.fireBets.size > 0 ) this.firePoints[ dieTotal ] = true;
+
             this.processBets( this.passBets,      this.betWon  );
             this.processBets( this.dpassBets,     this.betLost );
             this.processBets( this.dpassOddsBets, this.betLost );
             this.processBets( this.passOddsBets,  this.lightOddsWon.bind( { crapsTable: this, number: this.point } ));
             this.point = 0;
             this.onMessage( "GivePLZ The point was made. TakeNRG" );
+            this.displayFirePoints();
+
+            // pay out fire bet if all six fire points are made
+            var firePointCount = this.firePointCount();
+            if ( firePointCount == 6 )
+            {
+                this.processBets( this.fireBets, this.betWonMultiplier.bind( { multiplier: 999 } ));
+                this.resetFirePoints();
+            }
         }
 
         // check to see if we sevened out
@@ -617,6 +668,28 @@ module.exports =
             this.processBets( this.dpassOddsBets, this.darkOddsWon.bind( { crapsTable: this, number: this.point } ));
             this.point = 0;
             this.onMessage( "GivePLZ Seven out. TakeNRG" );
+
+            // process fire bets, if they exist
+            if ( this.fireBets.size > 0 )
+            {
+                // process fire bets
+                var firePointCount = this.firePointCount();
+                if ( firePointCount == 4 )
+                {
+                    this.processBets( this.fireBets, this.betWonMultiplier.bind( { multiplier: 24 } ));
+                }
+                else if ( firePointCount == 5 )
+                {
+                    this.processBets( this.fireBets, this.betWonMultiplier.bind( { multiplier: 249 } ));
+                }
+                else this.processBets( this.fireBets, this.betLost );
+
+                // display fire point count
+                this.onMessage( "GivePLZ " + ( firePointCount == 0 ? "No" : "Only " + firePointCount ) +
+                                " fire point" + ( firePointCount == 1 ? "" : "s" ) + " made. TakeNRG" );
+
+                this.resetFirePoints();
+            }
         }
 
         // if there are no bets and no point: check minimum balances, save player balances, and stop the timer
@@ -642,6 +715,7 @@ module.exports =
         if ( this.fieldBets.size     > 0 ) return true;
         if ( this.anyCrapsBets.size  > 0 ) return true;
         if ( this.anySevenBets.size  > 0 ) return true;
+        if ( this.fireBets.size      > 0 ) return true;
 
         // iterate over bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
@@ -795,6 +869,7 @@ module.exports =
         if ( this.betDispaly( username, "field",      this.fieldBets     )) betsFound = true;
         if ( this.betDispaly( username, "any-craps",  this.anyCrapsBets  )) betsFound = true;
         if ( this.betDispaly( username, "any-seven",  this.anySevenBets  )) betsFound = true;
+        if ( this.betDispaly( username, "fire",       this.fireBets      )) betsFound = true;
 
         // iterate over come bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
@@ -868,6 +943,10 @@ module.exports =
         else if ( bet.startsWith( "any-seven" ))
         {
             this.handleBet( username, "any-seven", this.anySevenBets, undefined, bet );
+        }
+        else if ( bet.startsWith( "fire" ))
+        {
+            this.handleBet( username, "fire", this.fireBets, this.fireCheck.bind( this ), bet );
         }
         else if ( bet.startsWith( "come-odds" ))
         {
@@ -1098,6 +1177,23 @@ module.exports =
         if ( this.point != 0 )
         {
             this.userMessage( username, "you cannot bet \"don't pass\" when a point is set." );
+            return false;
+        }
+
+        return true;
+    },
+
+    fireCheck( username, amount )
+    {
+        if ( this.firePointCount() > 0 )
+        {
+            this.userMessage( username, "you cannot bet \"fire\" once a fire point has been made." );
+            return false;
+        }
+
+        if ( this.point != 0 )
+        {
+            this.userMessage( username, "you cannot bet \"fire\" when a point is set." );
             return false;
         }
 

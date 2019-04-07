@@ -47,6 +47,7 @@ Default maximum odds is 100x.
 * `field` - Field; 2 pays 2 to 1, 12 pays 3 to 1
 * `any-craps` - Any Craps; pays 7.5 to 1
 * `any-seven` - Any Seven; pays 4 to 1
+* `fire` - Fire; 4 fire points pays 24 to 1, 5 fire points pays 249 to 1, 6 fire points pays 999 to 1
 * `come` - Come
 * `come-odds [number]` - Come Odds on the Specified Number
 * `dcome` - Don't Come
