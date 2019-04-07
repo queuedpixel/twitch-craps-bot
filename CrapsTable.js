@@ -49,7 +49,8 @@ module.exports =
     hardBets: [],
     hopBets: [],
     betResults: new Map(),
-    playersShownBets: [],
+    commandCooldownBalance: [],
+    commandCooldownBets: [],
     point: 0,
     timerRunning: false,
     timerCounter: 0,
@@ -544,8 +545,9 @@ module.exports =
     // update the craps table based on the results of the specifed roll
     processRoll( die1, die2 )
     {
-        // allow all players to view their bets again
-        this.playersShownBets = [];
+        // allow all players to use once-per-roll commands again
+        this.commandCooldownBalance = [];
+        this.commandCooldownBets    = [];
 
         // print out the roll
         var dieTotal = die1 + die2;
@@ -658,6 +660,14 @@ module.exports =
         return false;
     },
 
+    // cooldown for commands users are allowed to run once per roll; return true if the user has already run the command
+    commandCooldown( username, cooldownArray )
+    {
+        if ( cooldownArray.includes( username )) return true;
+        cooldownArray.push( username );
+        return false;
+    },
+
     // process chat commands
     processCommand( username, message )
     {
@@ -726,9 +736,11 @@ module.exports =
 
     balanceCommand( username )
     {
+        // skip if the player has already viewed their balance since the last die roll
+        if ( this.commandCooldown( username, this.commandCooldownBalance )) return;
+
         var balance = this.getBalance( username );
         var availableBalance = this.getAvailableBalance( username );
-
         var message = "balance: " + this.formatCurrency( balance );
         if ( balance != availableBalance ) message += "; available balance: " + this.formatCurrency( availableBalance );
         this.userMessage( username, message );
@@ -751,8 +763,7 @@ module.exports =
     betsCommand( username )
     {
         // skip if the player has already viewed their bets since the last die roll
-        if ( this.playersShownBets.includes( username )) return;
-        this.playersShownBets.push( username );
+        if ( this.commandCooldown( username, this.commandCooldownBets )) return;
 
         var betsFound = false;
         if ( this.betDispaly( username, "pass",       this.passBets      )) betsFound = true;
