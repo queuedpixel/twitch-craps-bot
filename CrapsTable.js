@@ -49,11 +49,12 @@ module.exports =
     hardBets: [],
     hopBets: [],
     betResults: new Map(),
+    commandCooldownHelp: 0,
     commandCooldownBalance: [],
     commandCooldownBets: [],
     point: 0,
-    timerRunning: false,
-    timerCounter: 0,
+    rollTimerRunning: false,
+    rollTimerCounter: 0,
 
     // override this function to listen to craps table messages
     onMessage( message ) {},
@@ -108,28 +109,40 @@ module.exports =
         } );
     },
 
-    startTimer()
+    startRollTimer()
     {
-        this.timerRunning = true;
-        this.timerCounter = config.rollingDelay;
+        this.rollTimerRunning = true;
+        this.rollTimerCounter = config.rollingDelay;
     },
 
-    stopTimer()
+    stopRollTimer()
     {
-        this.timerRunning = false;
+        this.rollTimerRunning = false;
     },
 
     // roll the dice after the specified rolling delay has expired
-    crapsTimer()
+    rollTimer()
     {
         // do nothing if the timer isn't running
-        if ( !this.timerRunning ) return;
+        if ( !this.rollTimerRunning ) return;
 
-        this.timerCounter--;
-        if ( this.timerCounter <= 0 )
+        this.rollTimerCounter--;
+        if ( this.rollTimerCounter <= 0 )
         {
             this.processRandomRoll();
         }
+    },
+
+    // decrement global cooldowns
+    cooldownTimer()
+    {
+        if ( this.commandCooldownHelp > 0 ) this.commandCooldownHelp--;
+    },
+
+    crapsTimer()
+    {
+        this.rollTimer();
+        this.cooldownTimer();
     },
 
     // perform a random die roll
@@ -612,10 +625,10 @@ module.exports =
             this.checkMinimumBalances();
             fs.writeFile( "players.json", JSON.stringify( [ ...this.playerBalances ], undefined, 4 ),
                           ( err ) => { if ( err ) throw err; } );
-            this.stopTimer();
+            this.stopRollTimer();
         }
         // otherwise: start the timer for the next roll
-        else this.startTimer();
+        else this.startRollTimer();
 
         this.showBetResults();
     },
@@ -680,7 +693,7 @@ module.exports =
         var command = message.substr( 6 ).trim();
 
         if ( command.startsWith( "roll" )) this.rollCommand( username, command );
-        else if ( command == "help" ) this.userMessage( username, "player guide: https://git.io/fhHjL" );
+        else if ( command == "help" ) this.helpCommand( username );
         else if ( command == "balance" ) this.balanceCommand( username );
         else if ( command == "bets" ) this.betsCommand( username );
         else if ( command.startsWith( "bet" )) this.betCommand( username, command );
@@ -732,6 +745,15 @@ module.exports =
         }
 
         this.processRoll( die1, die2 );
+    },
+
+    helpCommand( username )
+    {
+        // skip if the help command cooldown has not expired
+        if ( this.commandCooldownHelp > 0 ) return;
+
+        this.userMessage( username, "player guide: https://git.io/fhHjL" );
+        this.commandCooldownHelp = config.helpCooldown;
     },
 
     balanceCommand( username )
@@ -1015,7 +1037,7 @@ module.exports =
 
         this.userMessage( username, "bet made: " + this.formatCurrency( amount ));
         bets.set( username, amount );
-        this.startTimer();
+        this.startRollTimer();
     },
 
     pointCheck( username, amount )
