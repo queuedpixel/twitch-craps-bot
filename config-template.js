@@ -28,12 +28,14 @@ SOFTWARE.
 
 module.exports =
 {
-    channel         : "channel-name", // name of the channel to connect to, without the the "#" character
-    owner           : "bot-owner",    // name of the bot owner
-    messageInterval : 2000,           // interval between sending messages; milliseconds
-    rollingDelay    : 60,             // delay for rolling after the last bet is placed; seconds
-    minimumBalance  : 100,            // minimum balance for players
-    maxOdds         : 100,            // maximum odds that can be placed; multiple of (don't) pass/come bets
-    helpCooldown    : 60,             // global cooldown on the "help" command; seconds
-    debug           : false           // whether or not to enable debugging features
+    channel                : "channel-name", // name of the channel to connect to, without the the "#" character
+    owner                  : "bot-owner",    // name of the bot owner
+    messageInterval        : 2000,           // interval between sending messages; milliseconds
+    rollingDelay           : 60,             // delay for rolling after the last bet is placed; seconds
+    minimumBalance         : 100,            // minimum balance for players
+    balanceCheckInterval   : 60,             // interval for adjusting player balances below minimum balance; seconds
+    balanceCheckAdjustment : 1,              // adjustment amount for player balances below minimum balance
+    maxOdds                : 100,            // maximum odds that can be placed; multiple of (don't) pass/come bets
+    helpCooldown           : 60,             // global cooldown on the "help" command; seconds
+    debug                  : false           // whether or not to enable debugging features
 };

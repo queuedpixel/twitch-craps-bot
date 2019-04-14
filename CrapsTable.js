@@ -51,10 +51,11 @@ module.exports =
     hardBets: [],
     hopBets: [],
     betResults: new Map(),
+    point: 0,
     commandCooldownHelp: 0,
     commandCooldownBalance: [],
     commandCooldownBets: [],
-    point: 0,
+    balanceAdjustmentCounter: 0,
     rollTimerRunning: false,
     rollTimerCounter: 0,
 
@@ -130,6 +131,32 @@ module.exports =
         this.rollTimerRunning = false;
     },
 
+    // decrement global cooldowns
+    cooldownTimer()
+    {
+        if ( this.commandCooldownHelp > 0 ) this.commandCooldownHelp--;
+    },
+
+    // increment player balances below minimum balance
+    balanceAdjustmentTimer()
+    {
+        this.balanceAdjustmentCounter++;
+        if ( this.balanceAdjustmentCounter > config.balanceCheckInterval )
+        {
+            this.balanceAdjustmentCounter = 0;
+
+            for ( let username of this.playerBalances.keys() )
+            {
+                if ( this.getBalance( username ) < config.minimumBalance * 100 )
+                {
+                    var newBalance = this.getBalance( username ) + config.balanceCheckAdjustment * 100;
+                    if ( newBalance > config.minimumBalance * 100 ) newBalance = config.minimumBalance * 100;
+                    this.playerBalances.set( username, newBalance );
+                }
+            }
+        }
+    },
+
     // roll the dice after the specified rolling delay has expired
     rollTimer()
     {
@@ -143,16 +170,11 @@ module.exports =
         }
     },
 
-    // decrement global cooldowns
-    cooldownTimer()
-    {
-        if ( this.commandCooldownHelp > 0 ) this.commandCooldownHelp--;
-    },
-
     crapsTimer()
     {
-        this.rollTimer();
         this.cooldownTimer();
+        this.balanceAdjustmentTimer();
+        this.rollTimer();
     },
 
     // perform a random die roll
@@ -238,18 +260,6 @@ module.exports =
     adjustBalance( username, amount )
     {
         this.playerBalances.set( username, this.getBalance( username ) + amount );
-    },
-
-    // set player balances to the minimum balance for all players below the minimum
-    checkMinimumBalances()
-    {
-        for ( let username of this.playerBalances.keys() )
-        {
-            if ( this.getBalance( username ) < config.minimumBalance * 100 )
-            {
-                this.playerBalances.set( username, config.minimumBalance * 100 );
-            }
-        }
     },
 
     showBetResults()
@@ -692,10 +702,9 @@ module.exports =
             }
         }
 
-        // if there are no bets and no point: check minimum balances, save player balances, and stop the timer
+        // if there are no bets and no point: save player balances and stop the roll timer
         if (( !this.betsExist() ) && ( this.point == 0 ))
         {
-            this.checkMinimumBalances();
             fs.writeFile( "players.json", JSON.stringify( [ ...this.playerBalances ], undefined, 4 ),
                           ( err ) => { if ( err ) throw err; } );
             this.stopRollTimer();
