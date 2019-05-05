@@ -58,9 +58,20 @@ module.exports =
     balanceAdjustmentCounter: 0,
     rollTimerRunning: false,
     rollTimerCounter: 0,
+    canDisplayLeaderboard: false,
 
     // override this function to listen to craps table messages
     onMessage( message ) {},
+
+    // inform the craps table that the message queue is empty
+    messageQueueEmpty()
+    {
+        if ( this.canDisplayLeaderboard )
+        {
+            this.displayLeaderboard();
+            this.canDisplayLeaderboard = false;
+        }
+    },
 
     userMessage( username, message )
     {
@@ -117,6 +128,7 @@ module.exports =
             }
 
             this.playerBalances = new Map( JSON.parse( data ));
+            this.displayLeaderboard();
         } );
     },
 
@@ -192,9 +204,9 @@ module.exports =
         return Math.floor( Math.random() * 6 ) + 1;
     },
 
-    formatCurrency( amount )
+    formatCurrency( amount, prefix = "§" )
     {
-        return "§" + ( amount / 100 ).toLocaleString( "en-US", { minimumFractionDigits: 2 } );
+        return prefix + ( amount / 100 ).toLocaleString( "en-US", { minimumFractionDigits: 2 } );
     },
 
     getBet( username, betMap )
@@ -702,17 +714,18 @@ module.exports =
             }
         }
 
+        this.showBetResults();
+
         // if there are no bets and no point: save player balances and stop the roll timer
         if (( !this.betsExist() ) && ( this.point == 0 ))
         {
             fs.writeFile( "players.json", JSON.stringify( [ ...this.playerBalances ], undefined, 4 ),
                           ( err ) => { if ( err ) throw err; } );
             this.stopRollTimer();
+            this.canDisplayLeaderboard = true;
         }
         // otherwise: start the timer for the next roll
         else this.startRollTimer();
-
-        this.showBetResults();
     },
 
     betsExist()
@@ -754,6 +767,48 @@ module.exports =
         }
 
         return false;
+    },
+
+    displayLeaderboard()
+    {
+        // get the maximum length of the leaderboard elements
+        var indexMaxLength = this.playerBalances.size.toString().length;
+        var usernameMaxLength = 0;
+        var balanceMaxLength = 0;
+        for ( let username of this.playerBalances.keys() )
+        {
+            var balance = this.formatCurrency( this.getBalance( username ), "" );
+            if ( username.length > usernameMaxLength ) usernameMaxLength = username.length;
+            if ( balance.length > balanceMaxLength   ) balanceMaxLength  = balance.length;
+        }
+
+        // format the leaderboard
+        var leaderboard = [];
+        for ( let username of this.playerBalances.keys() )
+        {
+            var balance = this.formatCurrency( this.getBalance( username ), "" );
+            var usernameSpacing = " ".repeat( usernameMaxLength - username.length );
+            var balanceSpacing  = " ".repeat( balanceMaxLength  - balance.length  );
+            var item = username + usernameSpacing + " : § " + balanceSpacing + balance;
+            leaderboard.push( { balance: this.getBalance( username ), item: item } );
+        }
+
+        // sort and print out the leaderboard
+        var line = "-".repeat( indexMaxLength    ) +
+                   "-".repeat( usernameMaxLength ) +
+                   "-".repeat( balanceMaxLength  ) +
+                   "--------";
+        console.log( line );
+
+        leaderboard.sort( function( b, a ) { return a.balance - b.balance; } );
+        for ( var i = 0; i < leaderboard.length; i++ )
+        {
+            var index = ( i + 1 ).toString();
+            var indexSpacing = " ".repeat( indexMaxLength - index.length );
+            console.log( indexSpacing + index + " - " + leaderboard[ i ].item );
+        }
+
+        console.log( line );
     },
 
     // cooldown for commands users are allowed to run once per roll; return true if the user has already run the command

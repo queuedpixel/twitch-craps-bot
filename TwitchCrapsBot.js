@@ -32,13 +32,18 @@ var config = require( "./config.js" );
 var channel = "#" + config.channel;
 
 var crapsTable = require( "./CrapsTable.js" );
-crapsTable.onMessage = function( message ) { messageQueue.push( message ); }
+crapsTable.onMessage = function( message ) { messageQueue.push( message ); };
 
 var messageQueue = [];
 
 function processMessageQueue()
 {
-    if ( messageQueue.length == 0 ) return;
+    if ( messageQueue.length == 0 )
+    {
+        crapsTable.messageQueueEmpty();
+        return;
+    }
+
     client.say( channel, messageQueue.shift() );
 }
 
