@@ -52,8 +52,10 @@ module.exports =
     hopBets: [],
     betResults: new Map(),
     point: 0,
+    banker: null,
     commandCooldownHelp: 0,
     commandCooldownBalance: [],
+    commandCooldownBanker: [],
     commandCooldownBets: [],
     balanceAdjustmentCounter: 0,
     rollTimerRunning: false,
@@ -227,6 +229,73 @@ module.exports =
         return this.playerBalances.get( username );
     },
 
+    getBetsPayout( bets, betResult )
+    {
+        var payout = 0;
+        for ( let username of bets.keys() ) payout += Math.floor( betResult( bets.get( username )));
+        return payout;
+    },
+
+    getAvailableBankerBalance()
+    {
+        // ensure that there is a banker
+        if ( this.banker == null ) throw "There is no banker.";
+
+        var availableBalance = this.getBalance( this.banker );
+
+        availableBalance -= this.getBetsPayout( this.passBets,     this.betWon                                      );
+        availableBalance -= this.getBetsPayout( this.dpassBets,    this.betWon                                      );
+        availableBalance -= this.getBetsPayout( this.fieldBets,    this.betWonMultiplier.bind( { multiplier: 3   } ));
+        availableBalance -= this.getBetsPayout( this.anyCrapsBets, this.betWonMultiplier.bind( { multiplier: 7.5 } ));
+        availableBalance -= this.getBetsPayout( this.anySevenBets, this.betWonMultiplier.bind( { multiplier: 4   } ));
+        availableBalance -= this.getBetsPayout( this.fireBets,     this.betWonMultiplier.bind( { multiplier: 999 } ));
+
+        availableBalance -= this.getBetsPayout(
+                this.passOddsBets, this.lightOddsWon.bind( { crapsTable: this, number: this.point } ));
+        availableBalance -= this.getBetsPayout(
+                this.dpassOddsBets, this.darkOddsWon.bind( { crapsTable: this, number: this.point } ));
+
+        // iterate over bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
+        for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
+        {
+            availableBalance -= this.getBetsPayout( this.comeBets[  i ], this.betWon );
+            availableBalance -= this.getBetsPayout( this.dcomeBets[ i ], this.betWon );
+
+            // skip index 0
+            if ( i != 0 )
+            {
+                availableBalance -= this.getBetsPayout(
+                        this.comeOddsBets[ i ], this.lightOddsWon.bind( { crapsTable: this, number: i } ));
+                availableBalance -= this.getBetsPayout(
+                        this.dcomeOddsBets[ i ], this.darkOddsWon.bind( { crapsTable: this, number: i } ));
+                availableBalance -= this.getBetsPayout(
+                        this.placeBets[ i ], this.placeWon.bind( { crapsTable: this, number: i } ));
+                availableBalance -= this.getBetsPayout(
+                        this.dplaceBets[ i ], this.dplaceWon.bind( { crapsTable: this, number: i } ));
+                availableBalance -= this.getBetsPayout(
+                        this.buyBets[ i ], this.buyWon.bind( { crapsTable: this, number: i } ));
+                availableBalance -= this.getBetsPayout(
+                        this.layBets[ i ], this.layWon.bind( { crapsTable: this, number: i } ));
+            }
+        }
+
+        // iterate over hard bets array; indices: [ 4, 6, 8, 10 ]
+        for ( var i = 4; i <= 10; i += 2 )
+        {
+            availableBalance -= this.getBetsPayout(
+                    this.hardBets[ i ], this.hardwayWon.bind( { crapsTable: this, number: i } ));
+        }
+
+        // iterate over hop bets array
+        for ( var i = 1; i <= 6; i++ ) for ( var j = i; j <= 6; j++ )
+        {
+            availableBalance -= this.getBetsPayout(
+                    this.hopBets[ i ][ j ], this.hopWon.bind( { crapsTable: this, die1: i, die2: j } ));
+        }
+
+        return availableBalance;
+    },
+
     getAvailableBalance( username )
     {
         var availableBalance = this.getBalance( username );
@@ -296,7 +365,7 @@ module.exports =
             case 9  : return 3 / 2;
             case 6  :
             case 8  : return 6 / 5;
-            default : throw "Unrecognized number."
+            default : throw "Unrecognized number.";
         }
     },
 
@@ -310,7 +379,7 @@ module.exports =
             case 9  : return 7 / 5;
             case 6  :
             case 8  : return 7 / 6;
-            default : throw "Unrecognized number."
+            default : throw "Unrecognized number.";
         }
     },
 
@@ -324,8 +393,26 @@ module.exports =
             case 9  : return 5 / 8;
             case 6  :
             case 8  : return 4 / 5;
-            default : throw "Unrecognized number."
+            default : throw "Unrecognized number.";
         }
+    },
+
+    hardwayMultiplier( number )
+    {
+        switch( number )
+        {
+            case 4  :
+            case 10 : return 7;
+            case 6  :
+            case 8  : return 9;
+            default : throw "Unrecognized number.";
+        }
+    },
+
+    hopMultiplier( die1, die2 )
+    {
+        // determine multiplier based on "hard" or "easy" hop bets
+        return ( die1 == die2 ) ? 33 : 16;
     },
 
     betWon( bet )
@@ -392,6 +479,23 @@ module.exports =
         return amountWon - commission;
     },
 
+    // you must bind an object to this function as follows:
+    // - crapsTable: reference to the craps table object
+    // - number: the number for the bet
+    hardwayWon( bet )
+    {
+        return this.crapsTable.hardwayMultiplier( this.number ) * bet;
+    },
+
+    // you must bind an object to this function as follows:
+    // - crapsTable: reference to the craps table object
+    // - die1: the number on the first die
+    // - die2: the number on the second die
+    hopWon( bet )
+    {
+        return this.crapsTable.hopMultiplier( this.die1, this.die2 ) * bet;
+    },
+
     betLost( bet )
     {
         return -bet;
@@ -403,6 +507,7 @@ module.exports =
         {
             var result = Math.floor( betResult( bets.get( username )));
             this.adjustBalance( username, result );
+            this.adjustBalance( this.banker, -result );
             if ( !this.betResults.has( username )) this.betResults.set( username, 0 );
             this.betResults.set( username, this.betResults.get( username ) + result );
         }
@@ -522,19 +627,9 @@ module.exports =
         // skip if we're processing a number other than what was rolled
         if ( number != die1 + die2 ) return;
 
-        var multiplier = 0;
-        switch( number )
-        {
-            case 4  :
-            case 10 : multiplier = 7; break;
-            case 6  :
-            case 8  : multiplier = 9; break;
-            default : throw "Unrecognized number."
-        }
-
         if ( die1 == die2 )
         {
-            this.processBets( this.hardBets[ number ], this.betWonMultiplier.bind( { multiplier: multiplier } ));
+            this.processBets( this.hardBets[ number ], this.hardwayWon.bind( { crapsTable: this, number: number } ));
         }
         else this.processBets( this.hardBets[ number ], this.betLost );
     },
@@ -574,11 +669,8 @@ module.exports =
         var i = die1 < die2 ? die1 : die2;
         var j = die1 < die2 ? die2 : die1;
 
-        // determine multiplier based on "hard" or "easy" hop bets
-        var multiplier = ( i == j ) ? 33 : 16;
-
         // hop bets for the specific die roll win
-        this.processBets( this.hopBets[ i ][ j ], this.betWonMultiplier.bind( { multiplier: multiplier } ));
+        this.processBets( this.hopBets[ i ][ j ], this.hopWon.bind( { crapsTable: this, die1: i, die2: j } ));
 
         // iterate over hop bets array
         for ( var i = 1; i <= 6; i++ ) for ( var j = i; j <= 6; j++ )
@@ -714,18 +806,31 @@ module.exports =
             }
         }
 
+        var betResultsDisplayed = this.betResults.size > 0;
         this.showBetResults();
 
-        // if there are no bets and no point: save player balances and stop the roll timer
+        // if there are no bets and no point: stop the roll timer (among other things)
         if (( !this.betsExist() ) && ( this.point == 0 ))
         {
+            // save player balances
             fs.writeFile( "players.json", JSON.stringify( [ ...this.playerBalances ], undefined, 4 ),
                           ( err ) => { if ( err ) throw err; } );
+
+            // reset the banker
+            this.commandCooldownBanker = [];
+            this.banker = null;
+            this.onMessage( "GivePLZ We need a new banker! TakeNRG" );
+
             this.stopRollTimer();
             this.canDisplayLeaderboard = true;
         }
-        // otherwise: start the timer for the next roll
-        else this.startRollTimer();
+        // otherwise: start the timer for the next roll and display the banker's available balance
+        else
+        {
+            // only display the banker balance if bets were won or lost
+            if ( betResultsDisplayed ) this.displayMaxPayout();
+            this.startRollTimer();
+        }
     },
 
     betsExist()
@@ -767,6 +872,15 @@ module.exports =
         }
 
         return false;
+    },
+
+    displayMaxPayout()
+    {
+        // ensure that there is a banker
+        if ( this.banker == null ) throw "There is no banker.";
+
+        var maxPayout = this.getBalance( this.banker ) / 100;
+        this.onMessage( "GivePLZ Max payout: " + this.formatCurrency( maxPayout ) + " TakeNRG" );
     },
 
     displayLeaderboard()
@@ -833,6 +947,7 @@ module.exports =
         if ( command.startsWith( "roll" )) this.rollCommand( username, command );
         else if ( command == "help" ) this.helpCommand( username );
         else if ( command == "balance" ) this.balanceCommand( username );
+        else if ( command == "banker" ) this.bankerCommand( username );
         else if ( command == "bets" ) this.betsCommand( username );
         else if ( command.startsWith( "bet" )) this.betCommand( username, command );
         else this.userMessage( username, "uncrecognized command. For help: !craps help" );
@@ -849,6 +964,12 @@ module.exports =
         if ( !config.debug )
         {
             this.userMessage( username, "enable debugging to use this command." );
+            return;
+        }
+
+        if ( this.banker == null )
+        {
+            this.userMessage( username, "we need a banker before you can roll the dice." );
             return;
         }
 
@@ -900,10 +1021,27 @@ module.exports =
         if ( this.commandCooldown( username, this.commandCooldownBalance )) return;
 
         var balance = this.getBalance( username );
-        var availableBalance = this.getAvailableBalance( username );
+        var availableBalance =
+                this.banker == username ? this.getAvailableBankerBalance() : this.getAvailableBalance( username );
         var message = "balance: " + this.formatCurrency( balance );
         if ( balance != availableBalance ) message += "; available balance: " + this.formatCurrency( availableBalance );
         this.userMessage( username, message );
+    },
+
+    bankerCommand( username, command )
+    {
+        // skip if the player has run the banker command during this shooting sequence
+        if ( this.commandCooldown( username, this.commandCooldownBanker )) return;
+
+        if ( this.banker != null )
+        {
+            this.userMessage( username, this.banker + " is the banker." );
+            return;
+        }
+
+        this.banker = username;
+        this.userMessage( username, "you're the banker!" );
+        this.displayMaxPayout();
     },
 
     betDispaly( username, betType, betMap )
@@ -972,6 +1110,18 @@ module.exports =
 
     betCommand( username, command )
     {
+        if ( this.banker == null )
+        {
+            this.userMessage( username, "we need a banker before you can bet." );
+            return;
+        }
+
+        if ( this.banker == username )
+        {
+            this.userMessage( username, "the banker cannot bet." );
+            return;
+        }
+
         if ( !command.startsWith( "bet " ))
         {
             this.userMessage( username, "you must specify which bet you wish to make." );
@@ -982,35 +1132,43 @@ module.exports =
 
         if ( bet.startsWith( "pass-odds" ))
         {
-            this.handleBet( username, "pass-odds", this.passOddsBets, this.passOddsCheck.bind( this ), bet );
+            var payoutFunction = this.lightOddsWon.bind( { crapsTable: this, number: this.point } );
+            this.handleBet(
+                    username, "pass-odds", this.passOddsBets, this.passOddsCheck.bind( this ), payoutFunction, bet );
         }
         else if ( bet.startsWith( "pass" ))
         {
-            this.handleBet( username, "pass", this.passBets, undefined, bet );
+            this.handleBet( username, "pass", this.passBets, undefined, this.betWon, bet );
         }
         else if ( bet.startsWith( "dpass-odds" ))
         {
-            this.handleBet( username, "dpass-odds", this.dpassOddsBets, this.dpassOddsCheck.bind( this ), bet );
+            var payoutFunction = this.darkOddsWon.bind( { crapsTable: this, number: this.point } );
+            this.handleBet(
+                    username, "dpass-odds", this.dpassOddsBets, this.dpassOddsCheck.bind( this ), payoutFunction, bet );
         }
         else if ( bet.startsWith( "dpass" ))
         {
-            this.handleBet( username, "dpass", this.dpassBets, this.dpassCheck.bind( this ), bet );
+            this.handleBet( username, "dpass", this.dpassBets, this.dpassCheck.bind( this ), this.betWon, bet );
         }
         else if ( bet.startsWith( "field" ))
         {
-            this.handleBet( username, "field", this.fieldBets, undefined, bet );
+            var payoutFunction = this.betWonMultiplier.bind( { multiplier: 3 } );
+            this.handleBet( username, "field", this.fieldBets, undefined, payoutFunction, bet );
         }
         else if ( bet.startsWith( "any-craps" ))
         {
-            this.handleBet( username, "any-craps", this.anyCrapsBets, undefined, bet );
+            var payoutFunction = this.betWonMultiplier.bind( { multiplier: 7.5 } );
+            this.handleBet( username, "any-craps", this.anyCrapsBets, undefined, payoutFunction, bet );
         }
         else if ( bet.startsWith( "any-seven" ))
         {
-            this.handleBet( username, "any-seven", this.anySevenBets, undefined, bet );
+            var payoutFunction = this.betWonMultiplier.bind( { multiplier: 4 } );
+            this.handleBet( username, "any-seven", this.anySevenBets, undefined, payoutFunction, bet );
         }
         else if ( bet.startsWith( "fire" ))
         {
-            this.handleBet( username, "fire", this.fireBets, this.fireCheck.bind( this ), bet );
+            var payoutFunction = this.betWonMultiplier.bind( { multiplier: 999 } );
+            this.handleBet( username, "fire", this.fireBets, this.fireCheck.bind( this ), payoutFunction, bet );
         }
         else if ( bet.startsWith( "come-odds" ))
         {
@@ -1018,7 +1176,7 @@ module.exports =
         }
         else if ( bet.startsWith( "come" ))
         {
-            this.handleBet( username, "come", this.comeBets[ 0 ], this.pointCheck.bind( this ), bet );
+            this.handleBet( username, "come", this.comeBets[ 0 ], this.pointCheck.bind( this ), this.betWon, bet );
         }
         else if ( bet.startsWith( "dcome-odds" ))
         {
@@ -1026,14 +1184,26 @@ module.exports =
         }
         else if ( bet.startsWith( "dcome" ))
         {
-            this.handleBet( username, "dcome", this.dcomeBets[ 0 ], this.pointCheck.bind( this ), bet );
+            this.handleBet( username, "dcome", this.dcomeBets[ 0 ], this.pointCheck.bind( this ), this.betWon, bet );
         }
-        else if ( bet.startsWith( "place"  )) this.handleNumberBet( username, "place",  this.placeBets,  bet );
-        else if ( bet.startsWith( "dplace" )) this.handleNumberBet( username, "dplace", this.dplaceBets, bet );
-        else if ( bet.startsWith( "buy"    )) this.handleNumberBet( username, "buy",    this.buyBets,    bet );
-        else if ( bet.startsWith( "lay"    )) this.handleNumberBet( username, "lay",    this.layBets,    bet );
-        else if ( bet.startsWith( "hard"   )) this.handleHardBet( username, bet );
-        else if ( bet.startsWith( "hop"    )) this.handleHopBet( username, bet );
+        else if ( bet.startsWith( "place" ))
+        {
+            this.handleNumberBet( username, "place", this.placeBets, this.placeWon, bet );
+        }
+        else if ( bet.startsWith( "dplace" ))
+        {
+            this.handleNumberBet( username, "dplace", this.dplaceBets, this.dplaceWon, bet );
+        }
+        else if ( bet.startsWith( "buy" ))
+        {
+            this.handleNumberBet( username, "buy", this.buyBets, this.buyWon, bet );
+        }
+        else if ( bet.startsWith( "lay" ))
+        {
+            this.handleNumberBet( username, "lay", this.layBets, this.layWon, bet );
+        }
+        else if ( bet.startsWith( "hard" )) this.handleHardBet( username, bet );
+        else if ( bet.startsWith( "hop"  )) this.handleHopBet(  username, bet );
         else this.userMessage( username, "unrecognized bet." );
     },
 
@@ -1057,7 +1227,7 @@ module.exports =
 
     getBetPoint( username, type, bet )
     {
-        number = this.getBetNumber( username, type, bet );
+        var number = this.getBetNumber( username, type, bet );
         if ( Number.isNaN( number )) return Number.NaN;
 
         if (( number < 4 ) || ( number == 7 ) || ( number > 10 ))
@@ -1071,7 +1241,7 @@ module.exports =
 
     getBetHardPoint( username, type, bet )
     {
-        number = this.getBetPoint( username, type, bet );
+        var number = this.getBetPoint( username, type, bet );
         if ( Number.isNaN( number )) return Number.NaN;
 
         if (( number == 5 ) || ( number == 9 ))
@@ -1085,26 +1255,31 @@ module.exports =
 
     handleComeOddsBet( username, type, comeBets, comeOddsBets, bet, isLight )
     {
-        number = this.getBetPoint( username, type, bet );
+        var number = this.getBetPoint( username, type, bet );
         if ( Number.isNaN( number )) return;
         var checkParams = { crapsTable: this, comeBets: comeBets, number: number, isLight: isLight }
         var checkFunction = this.comeOddsCheck.bind( checkParams );
-        this.handleBet( username, type + " " + number, comeOddsBets[ number ], checkFunction, bet );
+        var payoutFunction = isLight ?
+                             this.lightOddsWon.bind( { crapsTable: this, number: number } ) :
+                             this.darkOddsWon.bind( { crapsTable: this, number: number } );
+        this.handleBet( username, type + " " + number, comeOddsBets[ number ], checkFunction, payoutFunction, bet );
     },
 
-    handleNumberBet( username, type, bets, bet )
+    handleNumberBet( username, type, bets, payoutFunction, bet )
     {
-        number = this.getBetPoint( username, type, bet );
+        var number = this.getBetPoint( username, type, bet );
         if ( Number.isNaN( number )) return;
-        this.handleBet( username, type + " " + number, bets[ number ], undefined, bet );
+        payoutFunction = payoutFunction.bind( { crapsTable: this, number: number } );
+        this.handleBet( username, type + " " + number, bets[ number ], undefined, payoutFunction, bet );
     },
 
     handleHardBet( username, bet )
     {
         var type = "hard";
-        number = this.getBetHardPoint( username, type, bet );
+        var number = this.getBetHardPoint( username, type, bet );
         if ( Number.isNaN( number )) return;
-        this.handleBet( username, type + " " + number, this.hardBets[ number ], undefined, bet );
+        var payoutFunction = this.hardwayWon.bind( { crapsTable: this, number: number } );
+        this.handleBet( username, type + " " + number, this.hardBets[ number ], undefined, payoutFunction, bet );
     },
 
     handleHopBet( username, bet )
@@ -1137,10 +1312,12 @@ module.exports =
         var i = die1 < die2 ? die1 : die2;
         var j = die1 < die2 ? die2 : die1;
 
-        this.handleBet( username, type + " " + die1 + " " + die2, this.hopBets[ i ][ j ], undefined, bet );
+        var payoutFunction = this.hopWon.bind( { crapsTable: this, die1: i, die2: j } );
+        this.handleBet(
+                username, type + " " + die1 + " " + die2, this.hopBets[ i ][ j ], undefined, payoutFunction, bet );
     },
 
-    handleBet( username, type, bets, checkFunction, bet )
+    handleBet( username, type, bets, checkFunction, payoutFunction, bet )
     {
         if ( !bet.startsWith( type + " " ))
         {
@@ -1177,6 +1354,46 @@ module.exports =
 
         // call check function, if it is defined
         if (( checkFunction !== undefined ) && ( !checkFunction( username, amount ))) return;
+
+        // determine the largest bet that has a payout less than or equal to the max payout (1% of banker balance)
+        var bankerBalance = this.getBalance( this.banker );
+        var availableBankerBalance = this.getAvailableBankerBalance();
+        var maxPayout = bankerBalance / 100;
+        var maxBet = availableBankerBalance; // initialize max bet to the available banker balance
+        maxBet *= 3; // some bets pay back worse than one to two, so triple the max bet to accomodate that
+        maxBet = Math.floor( maxBet / 100 ) * 100; // floor max bet to a whole unit amount
+        if ( maxBet < 100 ) maxBet = 100; // ensure that max bet starts out at least one whole unit
+
+        // Find the max bet with a payout that is less than or equal to the max payout and is less than or equal to the
+        // available banker balance. Allow a bet of one whole unit, if the available banker balance can accomodate such
+        // a bet, even if it exceeds the max payout.
+        var maxBetPayout = Math.floor( payoutFunction( maxBet ));
+        while ((( maxBetPayout > maxPayout ) && ( maxBet > 100 )) || ( maxBetPayout > availableBankerBalance ))
+        {
+            maxBet -= 100;
+            maxBetPayout = Math.floor( payoutFunction( maxBet ));
+        }
+
+        // ensure that the banker has sufficient balance to accomodate the largest possible payout for the bet
+        var amountPayout = Math.floor( payoutFunction( amount ));
+        if ( amountPayout > availableBankerBalance )
+        {
+            this.userMessage( username,
+                              "payout of " + this.formatCurrency( amountPayout ) +
+                              " exceeds available banker balance of " + this.formatCurrency( availableBankerBalance ) +
+                              ( maxBet > 0 ? "; maximum allowed bet: " + this.formatCurrency( maxBet ) : "" ));
+            return;
+        }
+
+        // prevent bets with payouts larger than the max, but allow bets of one unit (even if they exceed the max)
+        if (( amountPayout > maxPayout ) && ( amount > 100 ))
+        {
+            this.userMessage( username,
+                              "payout of " + this.formatCurrency( amountPayout ) +
+                              " exceeds max payout of " + this.formatCurrency( maxPayout ) +
+                              ( maxBet > 0 ? "; maximum allowed bet: " + this.formatCurrency( maxBet ) : "" ));
+            return;
+        }
 
         this.userMessage( username, "bet made: " + this.formatCurrency( amount ));
         bets.set( username, amount );

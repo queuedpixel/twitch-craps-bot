@@ -15,10 +15,15 @@ Example: `!craps bet pass 1`
 The Twitch Craps Bot will automatically roll the dice a short while after the last bet is placed.
 The bot will continue to roll the dice as long as there are bets remaining.
 
+Players serve as the banker for the craps table.
+Bets that are won are paid out by the banker and bets that are lost are paid to the banker.
+Players can serve as the banker using the `!craps banker` command.
+
 ## Command Guide
 
 * `!craps help` - Show a link to this guide.
 * `!craps balance` - Show your current balance.
+* `!craps banker` - Serve as the banker.
 * `!craps bets` - Show your current bets.
 * `!craps bet [type] [amount]` - Place a bet of the specified type with the specified amount.
 
