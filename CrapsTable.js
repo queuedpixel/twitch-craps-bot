@@ -217,6 +217,13 @@ module.exports =
         return 0;
     },
 
+    getBetsPayout( bets, betResult )
+    {
+        var payout = 0;
+        for ( let username of bets.keys() ) payout += Math.floor( betResult( bets.get( username )));
+        return payout;
+    },
+
     getBalance( username )
     {
         if ( !this.playerBalances.has( username ))
@@ -229,19 +236,22 @@ module.exports =
         return this.playerBalances.get( username );
     },
 
-    getBetsPayout( bets, betResult )
-    {
-        var payout = 0;
-        for ( let username of bets.keys() ) payout += Math.floor( betResult( bets.get( username )));
-        return payout;
-    },
-
-    getAvailableBankerBalance()
+    getBankerBalance()
     {
         // ensure that there is a banker
         if ( this.banker == null ) throw "There is no banker.";
 
-        var availableBalance = this.getBalance( this.banker );
+        return this.getBalance( this.banker );
+    },
+
+    getMaxPayout()
+    {
+        return Math.floor( this.getBankerBalance() / 100 );
+    },
+
+    getAvailableBankerBalance()
+    {
+        var availableBalance = this.getBankerBalance();
 
         availableBalance -= this.getBetsPayout( this.passBets,     this.betWon                                      );
         availableBalance -= this.getBetsPayout( this.dpassBets,    this.betWon                                      );
@@ -876,11 +886,7 @@ module.exports =
 
     displayMaxPayout()
     {
-        // ensure that there is a banker
-        if ( this.banker == null ) throw "There is no banker.";
-
-        var maxPayout = this.getBalance( this.banker ) / 100;
-        this.onMessage( "GivePLZ Max payout: " + this.formatCurrency( maxPayout ) + " TakeNRG" );
+        this.onMessage( "GivePLZ Max payout: " + this.formatCurrency( this.getMaxPayout() ) + " TakeNRG" );
     },
 
     displayLeaderboard()
@@ -1356,9 +1362,9 @@ module.exports =
         if (( checkFunction !== undefined ) && ( !checkFunction( username, amount ))) return;
 
         // determine the largest bet that has a payout less than or equal to the max payout (1% of banker balance)
-        var bankerBalance = this.getBalance( this.banker );
+        var bankerBalance = this.getBankerBalance();
         var availableBankerBalance = this.getAvailableBankerBalance();
-        var maxPayout = bankerBalance / 100;
+        var maxPayout = this.getMaxPayout();
         var maxBet = availableBankerBalance; // initialize max bet to the available banker balance
         maxBet *= 3; // some bets pay back worse than one to two, so triple the max bet to accomodate that
         maxBet = Math.floor( maxBet / 100 ) * 100; // floor max bet to a whole unit amount
