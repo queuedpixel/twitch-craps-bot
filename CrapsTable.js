@@ -425,97 +425,94 @@ module.exports =
         return ( die1 == die2 ) ? 33 : 16;
     },
 
-    betWon( bet )
+    betWon()
     {
-        return bet;
+        return 1;
     },
 
     // you must bind an object to this function as follows:
     // - multiplier: the multiplier for the bet
-    betWonMultiplier( bet )
+    betWonMultiplier()
     {
-        return bet * this.multiplier;
+        return this.multiplier;
     },
 
     // you must bind an object to this function as follows:
     // - crapsTable: reference to the craps table object
     // - number: the point for the odds
-    lightOddsWon( bet )
+    lightOddsWon()
     {
-        return this.crapsTable.oddsMultiplier( this.number ) * bet;
+        return this.crapsTable.oddsMultiplier( this.number );
     },
 
     // you must bind an object to this function as follows:
     // - crapsTable: reference to the craps table object
     // - number: the point for the odds
-    darkOddsWon( bet )
+    darkOddsWon()
     {
-        return bet / this.crapsTable.oddsMultiplier( this.number );
+        return 1 / this.crapsTable.oddsMultiplier( this.number );
     },
 
     // you must bind an object to this function as follows:
     // - crapsTable: reference to the craps table object
     // - number: the number for the bet
-    placeWon( bet )
+    placeWon()
     {
-        return this.crapsTable.placeMultiplier( this.number ) * bet;
+        return this.crapsTable.placeMultiplier( this.number );
     },
 
     // you must bind an object to this function as follows:
     // - crapsTable: reference to the craps table object
     // - number: the number for the bet
-    dplaceWon( bet )
+    dplaceWon()
     {
-        return this.crapsTable.dplaceMultiplier( this.number ) * bet;
+        return this.crapsTable.dplaceMultiplier( this.number );
     },
 
     // you must bind an object to this function as follows:
     // - crapsTable: reference to the craps table object
     // - number: the number for the bet
-    buyWon( bet )
+    buyWon()
     {
-        var commission = Math.ceil( bet - ( 19 * bet / 20 ));
-        var amountWon = this.crapsTable.oddsMultiplier( this.number ) * bet;
-        return amountWon - commission;
+        return this.crapsTable.oddsMultiplier( this.number ) - ( 1 / 20 );
     },
 
     // you must bind an object to this function as follows:
     // - crapsTable: reference to the craps table object
     // - number: the number for the bet
-    layWon( bet )
+    layWon()
     {
-        var amountWon = bet / this.crapsTable.oddsMultiplier( this.number );
-        var commission = Math.ceil( amountWon - ( 19 * amountWon / 20 ));
-        return amountWon - commission;
+        var oddsMultiplier = this.crapsTable.oddsMultiplier( this.number );
+        return ( 1 / oddsMultiplier ) - ( 1 / ( oddsMultiplier * 20 ));
     },
 
     // you must bind an object to this function as follows:
     // - crapsTable: reference to the craps table object
     // - number: the number for the bet
-    hardwayWon( bet )
+    hardwayWon()
     {
-        return this.crapsTable.hardwayMultiplier( this.number ) * bet;
+        return this.crapsTable.hardwayMultiplier( this.number );
     },
 
     // you must bind an object to this function as follows:
     // - crapsTable: reference to the craps table object
     // - die1: the number on the first die
     // - die2: the number on the second die
-    hopWon( bet )
+    hopWon()
     {
-        return this.crapsTable.hopMultiplier( this.die1, this.die2 ) * bet;
+        return this.crapsTable.hopMultiplier( this.die1, this.die2 );
     },
 
-    betLost( bet )
+    betLost()
     {
-        return -bet;
+        return -1;
     },
 
     processBets( bets, betResult )
     {
         for ( let username of bets.keys() )
         {
-            var result = Math.floor( betResult( bets.get( username )));
+            var result = Math.floor( betResult() * bets.get( username ));
             this.adjustBalance( username, result );
             this.adjustBalance( this.banker, -result );
             if ( !this.betResults.has( username )) this.betResults.set( username, 0 );
@@ -1361,46 +1358,52 @@ module.exports =
         // call check function, if it is defined
         if (( checkFunction !== undefined ) && ( !checkFunction( username, amount ))) return;
 
-        // determine the largest bet that has a payout less than or equal to the max bet payout
+        // determine the largest bet permitted by the banker
         var bankerBalance = this.getBankerBalance();
         var availableBankerBalance = this.getAvailableBankerBalance();
         var maxPayout = this.getMaxPayout();
-        var maxBet = availableBankerBalance; // initialize max bet to the available banker balance
-        maxBet *= 3; // some bets pay back worse than one to two, so triple the max bet to accomodate that
-        maxBet = Math.floor( maxBet / 100 ) * 100; // floor max bet to a whole unit amount
-        if ( maxBet < 100 ) maxBet = 100; // ensure that max bet starts out at least one whole unit
+        var payout = payoutFunction();
 
-        // Find the max bet with a payout that is less than or equal to the max bet payout and is less than or equal to
-        // the available banker balance. Allow a bet of one whole unit, if the available banker balance can accomodate
-        // such a bet, even if it exceeds the max bet payout.
-        var maxBetPayout = Math.floor( payoutFunction( maxBet ));
-        while ((( maxBetPayout > maxPayout ) && ( maxBet > 100 )) || ( maxBetPayout > availableBankerBalance ))
+        // limit payout to available banker balance, if the available banker balance is smaller
+        if ( availableBankerBalance < maxPayout ) maxPayout = availableBankerBalance;
+
+        var maxBet = maxPayout / payout; // determine the largest bet with a payout less than or equal to the max payout
+        maxBet = Math.floor( maxBet / 100 ) * 100; // floor the max to a whole unit of currency
+
+        // if needed: allow a maximum bet of at least one whole unit, provided the banker has a large enough balance
+        if (( maxBet < 100 ) && ( 100 * payout <= availableBankerBalance )) maxBet = 100;
+
+        // ensure that the banker can accept this bet for any amount
+        if ( maxBet < 100 )
         {
-            maxBet -= 100;
-            maxBetPayout = Math.floor( payoutFunction( maxBet ));
+            this.userMessage( username,
+                              "banker cannot accept this bet for any amount; banker balance: " +
+                              this.formatCurrency( availableBankerBalance ));
+            return;
         }
 
         // ensure that the banker has sufficient balance to accomodate the largest possible payout for the bet
-        var amountPayout = Math.floor( payoutFunction( amount ));
+        var amountPayout = Math.floor( payout * amount );
         if ( amountPayout > availableBankerBalance )
         {
             this.userMessage( username,
                               "payout of " + this.formatCurrency( amountPayout ) +
                               " exceeds available banker balance of " + this.formatCurrency( availableBankerBalance ) +
-                              ( maxBet > 0 ? "; maximum allowed bet: " + this.formatCurrency( maxBet ) : "" ));
+                              "; maximum allowed bet: " + this.formatCurrency( maxBet ));
             return;
         }
 
-        // prevent bets with payouts larger than the max, but allow bets of one unit (even if they exceed the max)
+        // prevent bets with payouts larger than the max, but allow bets of whole one unit (even if they exceed the max)
         if (( amountPayout > maxPayout ) && ( amount > 100 ))
         {
             this.userMessage( username,
                               "payout of " + this.formatCurrency( amountPayout ) +
                               " exceeds max payout of " + this.formatCurrency( maxPayout ) +
-                              ( maxBet > 0 ? "; maximum allowed bet: " + this.formatCurrency( maxBet ) : "" ));
+                              "; maximum allowed bet: " + this.formatCurrency( maxBet ));
             return;
         }
 
+        // place the bet
         this.userMessage( username, "bet made: " + this.formatCurrency( amount ));
         bets.set( username, amount );
         this.startRollTimer();
