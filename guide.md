@@ -61,5 +61,5 @@ Default maximum odds is 100x.
 * `dplace [number]` - Place to Lose on the Specified Number
 * `buy [number]` - Buy on the Specified Number; commission is charged when bet is won
 * `lay [number]` - Lay on the Specified Number; commission is charged when bet is won
-* `hard [number]` - Hard Way on the Specified Number
-* `hop [die1] [die2]` - Hop Bet on the Specified Die Roll
+* `hard [number]` - Hard Way on the Specified Number; 4 and 10 pay 7 to 1, 6 and 8 pay 9 to 1
+* `hop [die1] [die2]` - Hop Bet on the Specified Die Roll; "hard" bets pay 33 to 1, "easy" bets pay 16 to 1
