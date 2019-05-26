@@ -29,6 +29,7 @@ Make a copy of `config-template.js` called `config.js` and specify your configur
 * `balanceCheckInterval` : interval for adjusting player balances below minimum balance; seconds
 * `balanceCheckAdjustment` : adjustment amount for player balances below minimum balance
 * `maxOdds` : maximum odds that can be placed; multiple of (don't) pass/come bets
+* `maxBetPayout` : maximum bet payout as a percentage of banker balance; between 0 and 1
 * `helpCooldown` : global cooldown on the "help" command; seconds
 * `debug` : whether or not to enable debugging features
 

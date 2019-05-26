@@ -36,6 +36,7 @@ module.exports =
     balanceCheckInterval   : 60,             // interval for adjusting player balances below minimum balance; seconds
     balanceCheckAdjustment : 1,              // adjustment amount for player balances below minimum balance
     maxOdds                : 100,            // maximum odds that can be placed; multiple of (don't) pass/come bets
+    maxBetPayout           : 0.01,           // maximum bet payout as a percentage of banker balance; between 0 and 1
     helpCooldown           : 60,             // global cooldown on the "help" command; seconds
     debug                  : false           // whether or not to enable debugging features
 };

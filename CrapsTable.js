@@ -246,7 +246,7 @@ module.exports =
 
     getMaxPayout()
     {
-        return Math.floor( this.getBankerBalance() / 100 );
+        return Math.floor( this.getBankerBalance() * config.maxBetPayout );
     },
 
     getAvailableBankerBalance()
@@ -1361,7 +1361,7 @@ module.exports =
         // call check function, if it is defined
         if (( checkFunction !== undefined ) && ( !checkFunction( username, amount ))) return;
 
-        // determine the largest bet that has a payout less than or equal to the max payout (1% of banker balance)
+        // determine the largest bet that has a payout less than or equal to the max bet payout
         var bankerBalance = this.getBankerBalance();
         var availableBankerBalance = this.getAvailableBankerBalance();
         var maxPayout = this.getMaxPayout();
@@ -1370,9 +1370,9 @@ module.exports =
         maxBet = Math.floor( maxBet / 100 ) * 100; // floor max bet to a whole unit amount
         if ( maxBet < 100 ) maxBet = 100; // ensure that max bet starts out at least one whole unit
 
-        // Find the max bet with a payout that is less than or equal to the max payout and is less than or equal to the
-        // available banker balance. Allow a bet of one whole unit, if the available banker balance can accomodate such
-        // a bet, even if it exceeds the max payout.
+        // Find the max bet with a payout that is less than or equal to the max bet payout and is less than or equal to
+        // the available banker balance. Allow a bet of one whole unit, if the available banker balance can accomodate
+        // such a bet, even if it exceeds the max bet payout.
         var maxBetPayout = Math.floor( payoutFunction( maxBet ));
         while ((( maxBetPayout > maxPayout ) && ( maxBet > 100 )) || ( maxBetPayout > availableBankerBalance ))
         {
