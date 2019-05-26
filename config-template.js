@@ -32,7 +32,7 @@ module.exports =
     owner                  : "bot-owner",    // name of the bot owner
     messageInterval        : 2000,           // interval between sending messages; milliseconds
     rollingDelay           : 60,             // delay for rolling after the last bet is placed; seconds
-    minimumBalance         : 100,            // minimum balance for players
+    minimumBalance         : 10000,          // minimum balance for players
     balanceCheckInterval   : 60,             // interval for adjusting player balances below minimum balance; seconds
     balanceCheckAdjustment : 1,              // adjustment amount for player balances below minimum balance
     maxOdds                : 100,            // maximum odds that can be placed; multiple of (don't) pass/come bets
