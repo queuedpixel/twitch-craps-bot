@@ -220,7 +220,7 @@ module.exports =
     getBetsPayout( bets, betResult )
     {
         var payout = 0;
-        for ( let username of bets.keys() ) payout += Math.floor( betResult( bets.get( username )));
+        for ( let username of bets.keys() ) payout += Math.floor( betResult() * bets.get( username ));
         return payout;
     },
 
