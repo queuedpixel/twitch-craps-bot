@@ -937,26 +937,30 @@ module.exports =
     },
 
     // process chat commands
-    processCommand( username, message )
+    processCommand( username, command )
     {
-        if ( !message.startsWith( "!craps " ))
+        if ( command.length == 0 )
         {
             this.userMessage( username, "you must specify a command. For help: !craps help" );
             return;
         }
 
-        var command = message.substr( 6 ).trim();
+        var commandName = command.split( " " )[ 0 ].toLowerCase();
+        var commandData = command.substring( commandName.length ).trim();
 
-        if ( command.startsWith( "roll" )) this.rollCommand( username, command );
-        else if ( command == "help" ) this.helpCommand( username );
-        else if ( command == "balance" ) this.balanceCommand( username );
-        else if ( command == "banker" ) this.bankerCommand( username );
-        else if ( command == "bets" ) this.betsCommand( username );
-        else if ( command.startsWith( "bet" )) this.betCommand( username, command );
-        else this.userMessage( username, "uncrecognized command. For help: !craps help" );
+        switch( commandName )
+        {
+            case "roll"    : this.rollCommand(    username, commandData ); break;
+            case "help"    : this.helpCommand(    username              ); break;
+            case "balance" : this.balanceCommand( username              ); break;
+            case "banker"  : this.bankerCommand(  username              ); break;
+            case "bets"    : this.betsCommand(    username              ); break;
+            case "bet"     : this.betCommand(     username, commandData ); break;
+            default : this.userMessage( username, "uncrecognized command. For help: !craps help" );
+        }
     },
 
-    rollCommand( username, command )
+    rollCommand( username, commandData )
     {
         if ( username.toLowerCase() != config.owner.toLowerCase() )
         {
@@ -976,23 +980,22 @@ module.exports =
             return;
         }
 
-        // perform random roll if die values are not specified
-        if ( !command.startsWith( "roll " ))
+        if ( commandData.length == 0 )
         {
             this.processRandomRoll();
             return;
         }
 
-        var data = command.substr( 4 ).trim();
-        var values = data.split( " " );
-        if ( values.length != 2 )
+        var commandDataSplits = commandData.split( " " );
+
+        if ( commandDataSplits.length < 2 )
         {
             this.userMessage( username, "you must specify two die values." );
             return;
         }
 
-        var die1 = parseInt( values[ 0 ] );
-        var die2 = parseInt( values[ 1 ] );
+        var die1 = parseInt( commandDataSplits[ 0 ] );
+        var die2 = parseInt( commandDataSplits[ 1 ] );
 
         if (( Number.isNaN( die1 )) || ( Number.isNaN( die2 )))
         {
@@ -1111,7 +1114,7 @@ module.exports =
         if ( !betsFound ) this.userMessage( username, "you have no bets." );
     },
 
-    betCommand( username, command )
+    betCommand( username, commandData )
     {
         if ( this.banker == null )
         {
@@ -1125,100 +1128,84 @@ module.exports =
             return;
         }
 
-        if ( !command.startsWith( "bet " ))
+        if ( commandData.length == 0 )
         {
             this.userMessage( username, "you must specify which bet you wish to make." );
             return;
         }
 
-        var bet = command.substr( 3 ).trim();
+        var betType = commandData.split( " " )[ 0 ].toLowerCase();
+        var betData = commandData.substring( betType.length ).trim();
 
-        if ( bet.startsWith( "pass-odds" ))
+        if ( betType == "pass" ) this.handleBet( username, this.passBets, undefined, this.betWon, betData );
+        else if ( betType == "pass-odds" )
         {
             var payoutFunction = this.lightOddsWon.bind( { crapsTable: this, number: this.point } );
-            this.handleBet(
-                    username, "pass-odds", this.passOddsBets, this.passOddsCheck.bind( this ), payoutFunction, bet );
+            this.handleBet( username, this.passOddsBets, this.passOddsCheck.bind( this ), payoutFunction, betData );
         }
-        else if ( bet.startsWith( "pass" ))
+        else if ( betType == "dpass" )
         {
-            this.handleBet( username, "pass", this.passBets, undefined, this.betWon, bet );
+            this.handleBet( username, this.dpassBets, this.dpassCheck.bind( this ), this.betWon, betData );
         }
-        else if ( bet.startsWith( "dpass-odds" ))
+        else if ( betType == "dpass-odds" )
         {
             var payoutFunction = this.darkOddsWon.bind( { crapsTable: this, number: this.point } );
-            this.handleBet(
-                    username, "dpass-odds", this.dpassOddsBets, this.dpassOddsCheck.bind( this ), payoutFunction, bet );
+            this.handleBet( username, this.dpassOddsBets, this.dpassOddsCheck.bind( this ), payoutFunction, betData );
         }
-        else if ( bet.startsWith( "dpass" ))
-        {
-            this.handleBet( username, "dpass", this.dpassBets, this.dpassCheck.bind( this ), this.betWon, bet );
-        }
-        else if ( bet.startsWith( "field" ))
+        else if ( betType == "field" )
         {
             var payoutFunction = this.betWonMultiplier.bind( { multiplier: 3 } );
-            this.handleBet( username, "field", this.fieldBets, undefined, payoutFunction, bet );
+            this.handleBet( username, this.fieldBets, undefined, payoutFunction, betData );
         }
-        else if ( bet.startsWith( "any-craps" ))
+        else if ( betType == "any-craps" )
         {
             var payoutFunction = this.betWonMultiplier.bind( { multiplier: 7.5 } );
-            this.handleBet( username, "any-craps", this.anyCrapsBets, undefined, payoutFunction, bet );
+            this.handleBet( username, this.anyCrapsBets, undefined, payoutFunction, betData );
         }
-        else if ( bet.startsWith( "any-seven" ))
+        else if ( betType == "any-seven" )
         {
             var payoutFunction = this.betWonMultiplier.bind( { multiplier: 4 } );
-            this.handleBet( username, "any-seven", this.anySevenBets, undefined, payoutFunction, bet );
+            this.handleBet( username, this.anySevenBets, undefined, payoutFunction, betData );
         }
-        else if ( bet.startsWith( "fire" ))
+        else if ( betType == "fire" )
         {
             var payoutFunction = this.betWonMultiplier.bind( { multiplier: 999 } );
-            this.handleBet( username, "fire", this.fireBets, this.fireCheck.bind( this ), payoutFunction, bet );
+            this.handleBet( username, this.fireBets, this.fireCheck.bind( this ), payoutFunction, betData );
         }
-        else if ( bet.startsWith( "come-odds" ))
+        else if ( betType == "come" )
         {
-            this.handleComeOddsBet( username, "come-odds", this.comeBets, this.comeOddsBets, bet, true );
+            this.handleBet( username, this.comeBets[ 0 ], this.pointCheck.bind( this ), this.betWon, betData );
         }
-        else if ( bet.startsWith( "come" ))
+        else if ( betType == "come-odds" )
         {
-            this.handleBet( username, "come", this.comeBets[ 0 ], this.pointCheck.bind( this ), this.betWon, bet );
+            this.handleComeOddsBet( username, this.comeBets, this.comeOddsBets, betData, true );
         }
-        else if ( bet.startsWith( "dcome-odds" ))
+        else if ( betType == "dcome" )
         {
-            this.handleComeOddsBet( username, "dcome-odds", this.dcomeBets, this.dcomeOddsBets, bet, false );
+            this.handleBet( username, this.dcomeBets[ 0 ], this.pointCheck.bind( this ), this.betWon, betData );
         }
-        else if ( bet.startsWith( "dcome" ))
+        else if ( betType == "dcome-odds" )
         {
-            this.handleBet( username, "dcome", this.dcomeBets[ 0 ], this.pointCheck.bind( this ), this.betWon, bet );
+            this.handleComeOddsBet( username, this.dcomeBets, this.dcomeOddsBets, betData, false );
         }
-        else if ( bet.startsWith( "place" ))
-        {
-            this.handleNumberBet( username, "place", this.placeBets, this.placeWon, bet );
-        }
-        else if ( bet.startsWith( "dplace" ))
-        {
-            this.handleNumberBet( username, "dplace", this.dplaceBets, this.dplaceWon, bet );
-        }
-        else if ( bet.startsWith( "buy" ))
-        {
-            this.handleNumberBet( username, "buy", this.buyBets, this.buyWon, bet );
-        }
-        else if ( bet.startsWith( "lay" ))
-        {
-            this.handleNumberBet( username, "lay", this.layBets, this.layWon, bet );
-        }
-        else if ( bet.startsWith( "hard" )) this.handleHardBet( username, bet );
-        else if ( bet.startsWith( "hop"  )) this.handleHopBet(  username, bet );
+        else if ( betType == "place"  ) this.handleNumberBet( username, this.placeBets,  this.placeWon,  betData );
+        else if ( betType == "dplace" ) this.handleNumberBet( username, this.dplaceBets, this.dplaceWon, betData );
+        else if ( betType == "buy"    ) this.handleNumberBet( username, this.buyBets,    this.buyWon,    betData );
+        else if ( betType == "lay"    ) this.handleNumberBet( username, this.layBets,    this.layWon,    betData );
+        else if ( betType == "hard"   ) this.handleHardBet( username, betData );
+        else if ( betType == "hop"    ) this.handleHopBet(  username, betData );
         else this.userMessage( username, "unrecognized bet." );
     },
 
-    getBetNumber( username, type, bet )
+    getBetNumber( username, betData )
     {
-        if ( !bet.startsWith( type + " " ))
+        if ( betData.length == 0 )
         {
             this.userMessage( username, "you must specify a number." );
             return Number.NaN;
         }
 
-        var number = parseInt( bet.substr( type.length ).trim() );
+        var number = parseInt( betData.split( " " )[ 0 ] );
         if ( Number.isNaN( number ))
         {
             this.userMessage( username, "unable to parse number." );
@@ -1228,9 +1215,9 @@ module.exports =
         return number;
     },
 
-    getBetPoint( username, type, bet )
+    getBetPoint( username, betData )
     {
-        var number = this.getBetNumber( username, type, bet );
+        var number = this.getBetNumber( username, betData );
         if ( Number.isNaN( number )) return Number.NaN;
 
         if (( number < 4 ) || ( number == 7 ) || ( number > 10 ))
@@ -1242,9 +1229,9 @@ module.exports =
         return number;
     },
 
-    getBetHardPoint( username, type, bet )
+    getBetHardPoint( username, betData )
     {
-        var number = this.getBetPoint( username, type, bet );
+        var number = this.getBetPoint( username, betData );
         if ( Number.isNaN( number )) return Number.NaN;
 
         if (( number == 5 ) || ( number == 9 ))
@@ -1256,48 +1243,51 @@ module.exports =
         return number;
     },
 
-    handleComeOddsBet( username, type, comeBets, comeOddsBets, bet, isLight )
+    handleComeOddsBet( username, comeBets, comeOddsBets, betData, isLight )
     {
-        var number = this.getBetPoint( username, type, bet );
+        var number = this.getBetPoint( username, betData );
         if ( Number.isNaN( number )) return;
+
         var checkParams = { crapsTable: this, comeBets: comeBets, number: number, isLight: isLight }
         var checkFunction = this.comeOddsCheck.bind( checkParams );
+
         var payoutFunction = isLight ?
                              this.lightOddsWon.bind( { crapsTable: this, number: number } ) :
                              this.darkOddsWon.bind( { crapsTable: this, number: number } );
-        this.handleBet( username, type + " " + number, comeOddsBets[ number ], checkFunction, payoutFunction, bet );
+
+        var amountData = betData.substring( betData.split( " " )[ 0 ].length ).trim();
+        this.handleBet( username, comeOddsBets[ number ], checkFunction, payoutFunction, amountData );
     },
 
-    handleNumberBet( username, type, bets, payoutFunction, bet )
+    handleNumberBet( username, bets, payoutFunction, betData )
     {
-        var number = this.getBetPoint( username, type, bet );
+        var number = this.getBetPoint( username, betData );
         if ( Number.isNaN( number )) return;
         payoutFunction = payoutFunction.bind( { crapsTable: this, number: number } );
-        this.handleBet( username, type + " " + number, bets[ number ], undefined, payoutFunction, bet );
+        var amountData = betData.substring( betData.split( " " )[ 0 ].length ).trim();
+        this.handleBet( username, bets[ number ], undefined, payoutFunction, amountData );
     },
 
-    handleHardBet( username, bet )
+    handleHardBet( username, betData )
     {
-        var type = "hard";
-        var number = this.getBetHardPoint( username, type, bet );
+        var number = this.getBetHardPoint( username, betData );
         if ( Number.isNaN( number )) return;
         var payoutFunction = this.hardwayWon.bind( { crapsTable: this, number: number } );
-        this.handleBet( username, type + " " + number, this.hardBets[ number ], undefined, payoutFunction, bet );
+        var amountData = betData.substring( betData.split( " " )[ 0 ].length ).trim();
+        this.handleBet( username, this.hardBets[ number ], undefined, payoutFunction, amountData );
     },
 
-    handleHopBet( username, bet )
+    handleHopBet( username, betData )
     {
-        var type = "hop";
-        var data = bet.substr( type.length ).trim();
-        var values = data.split( " " );
-        if ( values.length < 2 )
+        var betDataSplits = betData.split( " " );
+        if ( betDataSplits.length < 2 )
         {
             this.userMessage( username, "you must specify two die values." );
             return;
         }
 
-        var die1 = parseInt( values[ 0 ] );
-        var die2 = parseInt( values[ 1 ] );
+        var die1 = parseInt( betDataSplits[ 0 ] );
+        var die2 = parseInt( betDataSplits[ 1 ] );
 
         if (( Number.isNaN( die1 )) || ( Number.isNaN( die2 )))
         {
@@ -1316,19 +1306,20 @@ module.exports =
         var j = die1 < die2 ? die2 : die1;
 
         var payoutFunction = this.hopWon.bind( { crapsTable: this, die1: i, die2: j } );
-        this.handleBet(
-                username, type + " " + die1 + " " + die2, this.hopBets[ i ][ j ], undefined, payoutFunction, bet );
+        var prefix = betDataSplits[ 0 ] + " " + betDataSplits[ 1 ];
+        var amountData = betData.substring( prefix.length ).trim();
+        this.handleBet( username, this.hopBets[ i ][ j ], undefined, payoutFunction, amountData );
     },
 
-    handleBet( username, type, bets, checkFunction, payoutFunction, bet )
+    handleBet( username, bets, checkFunction, payoutFunction, betData )
     {
-        if ( !bet.startsWith( type + " " ))
+        if ( betData.length == 0 )
         {
             this.userMessage( username, "you must specify an amount." );
             return;
         }
 
-        var amount = parseInt( bet.substr( type.length ).trim() ) * 100;
+        var amount = parseInt( betData.split( " " )[ 0 ] ) * 100;
         if ( Number.isNaN( amount ))
         {
             this.userMessage( username, "unable to parse amount." );

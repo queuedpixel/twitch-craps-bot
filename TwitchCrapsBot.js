@@ -93,13 +93,15 @@ var client = new twitch.client( options );
 
 client.on( "chat", function( chatChannel, userstate, message, self )
 {
-    if ( chatChannel != channel ) return;
-    if ( self ) return;
+    if ( chatChannel != channel ) return; // skip if message is for another chat channel
+    if ( self ) return; // skip if the message is from us
 
-    var command = message.toLowerCase();
-    if ( command.startsWith( "!craps" ))
+    // pass the message along to the craps table class if it contains the "!craps" prefix
+    var prefix = message.split( " " )[ 0 ].toLowerCase()
+    if ( prefix == "!craps" )
     {
-        crapsTable.processCommand( userstate.username, command );
+        // remove the prefix from the message and pass it along
+        crapsTable.processCommand( userstate.username, message.substring( prefix.length ).trim() );
     }
 } );
 
