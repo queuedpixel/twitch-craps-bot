@@ -18,6 +18,7 @@ The bot will continue to roll the dice as long as there are bets remaining.
 Players serve as the banker for the craps table.
 Bets that are won are paid out by the banker and bets that are lost are paid to the banker.
 Players can serve as the banker using the `!craps banker` command.
+Note that you cannot bet when you are the banker.
 
 ## Command Guide
 
