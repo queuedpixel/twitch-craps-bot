@@ -24,9 +24,10 @@ SOFTWARE.
 
 */
 
-var fs     = require( "fs"          );
-var Util   = require( "./Util.js"   );
-var config = require( "./config.js" );
+var fs        = require( "fs"             );
+var scripting = require( "./Scripting.js" );
+var Util      = require( "./Util.js"      );
+var config    = require( "./config.js"    );
 
 module.exports =
 {
@@ -959,6 +960,9 @@ module.exports =
             this.helpMessage( username, "you must specify a command." );
             return;
         }
+
+        // allow the scripting engine to process the command rather than this function
+        if ( scripting.processCommand( username, command )) return;
 
         var commandName = Util.getCommandPrefix( command );
         var commandData = Util.getCommandRemainder( command );
