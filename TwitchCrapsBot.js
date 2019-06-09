@@ -32,6 +32,8 @@ var config = require( "./config.js" );
 var channel = "#" + config.channel;
 
 var crapsTable = require( "./CrapsTable.js" );
+var Util       = require( "./Util.js"       );
+
 crapsTable.onMessage = function( message ) { messageQueue.push( message ); };
 
 var messageQueue = [];
@@ -96,13 +98,11 @@ client.on( "chat", function( chatChannel, userstate, message, self )
     if ( chatChannel != channel ) return; // skip if message is for another chat channel
     if ( self ) return; // skip if the message is from us
 
+    var commandName = Util.getCommandPrefix( message );
+    var commandData = Util.getCommandRemainder( message );
+
     // pass the message along to the craps table class if it contains the "!craps" prefix
-    var prefix = message.split( " " )[ 0 ].toLowerCase()
-    if ( prefix == "!craps" )
-    {
-        // remove the prefix from the message and pass it along
-        crapsTable.processCommand( userstate.username, message.substring( prefix.length ).trim() );
-    }
+    if ( commandName == "!craps" ) crapsTable.processCommand( userstate.username, commandData );
 } );
 
 client.connect();

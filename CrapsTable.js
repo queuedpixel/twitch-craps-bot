@@ -24,8 +24,8 @@ SOFTWARE.
 
 */
 
-var fs = require( "fs" );
-
+var fs     = require( "fs"          );
+var Util   = require( "./Util.js"   );
 var config = require( "./config.js" );
 
 module.exports =
@@ -955,8 +955,8 @@ module.exports =
             return;
         }
 
-        var commandName = command.split( " " )[ 0 ].toLowerCase();
-        var commandData = command.substring( commandName.length ).trim();
+        var commandName = Util.getCommandPrefix( command );
+        var commandData = Util.getCommandRemainder( command );
 
         switch( commandName )
         {
@@ -996,6 +996,7 @@ module.exports =
             return;
         }
 
+        commandData = Util.collapseSpace( commandData );
         var commandDataSplits = commandData.split( " " );
 
         if ( commandDataSplits.length < 2 )
@@ -1144,8 +1145,8 @@ module.exports =
             return;
         }
 
-        var betType = commandData.split( " " )[ 0 ].toLowerCase();
-        var betData = commandData.substring( betType.length ).trim();
+        var betType = Util.getCommandPrefix( commandData );
+        var betData = Util.getCommandRemainder( commandData );
 
         if ( betType == "pass" ) this.handleBet( username, this.passBets, undefined, this.betWon, betData );
         else if ( betType == "pass-odds" )
@@ -1215,7 +1216,7 @@ module.exports =
             return Number.NaN;
         }
 
-        var number = this.safeParseInt( betData.split( " " )[ 0 ] );
+        var number = this.safeParseInt( Util.getCommandPrefix( betData ));
         if ( Number.isNaN( number ))
         {
             this.userMessage( username, "unable to parse number." );
@@ -1265,7 +1266,7 @@ module.exports =
                              this.lightOddsWon.bind( { crapsTable: this, number: number } ) :
                              this.darkOddsWon.bind( { crapsTable: this, number: number } );
 
-        var amountData = betData.substring( betData.split( " " )[ 0 ].length ).trim();
+        var amountData = Util.getCommandRemainder( betData );
         this.handleBet( username, comeOddsBets[ number ], checkFunction, payoutFunction, amountData );
     },
 
@@ -1274,7 +1275,7 @@ module.exports =
         var number = this.getBetPoint( username, betData );
         if ( Number.isNaN( number )) return;
         payoutFunction = payoutFunction.bind( { crapsTable: this, number: number } );
-        var amountData = betData.substring( betData.split( " " )[ 0 ].length ).trim();
+        var amountData = Util.getCommandRemainder( betData );
         this.handleBet( username, bets[ number ], undefined, payoutFunction, amountData );
     },
 
@@ -1283,12 +1284,13 @@ module.exports =
         var number = this.getBetHardPoint( username, betData );
         if ( Number.isNaN( number )) return;
         var payoutFunction = this.hardwayWon.bind( { crapsTable: this, number: number } );
-        var amountData = betData.substring( betData.split( " " )[ 0 ].length ).trim();
+        var amountData = Util.getCommandRemainder( betData );
         this.handleBet( username, this.hardBets[ number ], undefined, payoutFunction, amountData );
     },
 
     handleHopBet( username, betData )
     {
+        betData = Util.collapseSpace( betData );
         var betDataSplits = betData.split( " " );
         if ( betDataSplits.length < 2 )
         {
@@ -1329,7 +1331,7 @@ module.exports =
             return;
         }
 
-        var amount = this.safeParseInt( betData.split( " " )[ 0 ] ) * 100;
+        var amount = this.safeParseInt( Util.getCommandPrefix( betData )) * 100;
         if ( Number.isNaN( amount ))
         {
             this.userMessage( username, "unable to parse amount." );
