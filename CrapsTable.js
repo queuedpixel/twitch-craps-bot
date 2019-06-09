@@ -80,6 +80,11 @@ module.exports =
         this.onMessage( "@" + username + ", " + message );
     },
 
+    helpMessage( username, message )
+    {
+        this.userMessage( username, message + " For help: !craps help" );
+    },
+
     resetFirePoints()
     {
         // iterate over fire points array; indices: [ 4, 5, 6, 8, 9, 10 ]
@@ -951,7 +956,7 @@ module.exports =
     {
         if ( command.length == 0 )
         {
-            this.userMessage( username, "you must specify a command. For help: !craps help" );
+            this.helpMessage( username, "you must specify a command." );
             return;
         }
 
@@ -966,7 +971,7 @@ module.exports =
             case "banker"  : this.bankerCommand(  username              ); break;
             case "bets"    : this.betsCommand(    username              ); break;
             case "bet"     : this.betCommand(     username, commandData ); break;
-            default : this.userMessage( username, "uncrecognized command. For help: !craps help" );
+            default : this.helpMessage( username, "uncrecognized command." );
         }
     },
 
@@ -1129,19 +1134,19 @@ module.exports =
     {
         if ( this.banker == null )
         {
-            this.userMessage( username, "we need a banker before you can bet." );
+            this.helpMessage( username, "we need a banker before you can bet." );
             return;
         }
 
         if ( this.banker == username )
         {
-            this.userMessage( username, "the banker cannot bet." );
+            this.helpMessage( username, "the banker cannot bet." );
             return;
         }
 
         if ( commandData.length == 0 )
         {
-            this.userMessage( username, "you must specify which bet you wish to make." );
+            this.helpMessage( username, "you must specify which bet you wish to make." );
             return;
         }
 
@@ -1205,21 +1210,21 @@ module.exports =
         else if ( betType == "lay"    ) this.handleNumberBet( username, this.layBets,    this.layWon,    betData );
         else if ( betType == "hard"   ) this.handleHardBet( username, betData );
         else if ( betType == "hop"    ) this.handleHopBet(  username, betData );
-        else this.userMessage( username, "unrecognized bet." );
+        else this.helpMessage( username, "unrecognized bet." );
     },
 
     getBetNumber( username, betData )
     {
         if ( betData.length == 0 )
         {
-            this.userMessage( username, "you must specify a number." );
+            this.helpMessage( username, "you must specify a number." );
             return Number.NaN;
         }
 
         var number = this.safeParseInt( Util.getCommandPrefix( betData ));
         if ( Number.isNaN( number ))
         {
-            this.userMessage( username, "unable to parse number." );
+            this.helpMessage( username, "unable to parse number." );
             return Number.NaN;
         }
 
@@ -1233,7 +1238,7 @@ module.exports =
 
         if (( number < 4 ) || ( number == 7 ) || ( number > 10 ))
         {
-            this.userMessage( username, "invalid number." );
+            this.helpMessage( username, "invalid number." );
             return Number.NaN;
         }
 
@@ -1247,7 +1252,7 @@ module.exports =
 
         if (( number == 5 ) || ( number == 9 ))
         {
-            this.userMessage( username, "invalid number." );
+            this.helpMessage( username, "invalid number." );
             return Number.NaN;
         }
 
@@ -1294,7 +1299,7 @@ module.exports =
         var betDataSplits = betData.split( " " );
         if ( betDataSplits.length < 2 )
         {
-            this.userMessage( username, "you must specify two die values." );
+            this.helpMessage( username, "you must specify two die values." );
             return;
         }
 
@@ -1303,13 +1308,13 @@ module.exports =
 
         if (( Number.isNaN( die1 )) || ( Number.isNaN( die2 )))
         {
-            this.userMessage( username, "unable to parse die values." );
+            this.helpMessage( username, "unable to parse die values." );
             return;
         }
 
         if (( die1 < 1 ) || ( die1 > 6 ) || ( die2 < 1 ) || ( die2 > 6 ))
         {
-            this.userMessage( username, "die values must be between 1 and 6." );
+            this.helpMessage( username, "die values must be between 1 and 6." );
             return;
         }
 
@@ -1327,20 +1332,20 @@ module.exports =
     {
         if ( betData.length == 0 )
         {
-            this.userMessage( username, "you must specify an amount." );
+            this.helpMessage( username, "you must specify an amount." );
             return;
         }
 
         var amount = this.safeParseInt( Util.getCommandPrefix( betData )) * 100;
         if ( Number.isNaN( amount ))
         {
-            this.userMessage( username, "unable to parse amount." );
+            this.helpMessage( username, "unable to parse amount." );
             return;
         }
 
         if ( amount < 1 )
         {
-            this.userMessage( username, "bet is too small." );
+            this.helpMessage( username, "bet is too small." );
             return;
         }
 
@@ -1416,7 +1421,7 @@ module.exports =
     {
         if ( this.point == 0 )
         {
-            this.userMessage( username, "you need a point first." );
+            this.helpMessage( username, "you need a point first." );
             return false;
         }
 
@@ -1439,7 +1444,7 @@ module.exports =
     {
         if ( !this.passBets.has( username ))
         {
-            this.userMessage( username, "you need a \"pass\" bet first." );
+            this.helpMessage( username, "you need a \"pass\" bet first." );
             return false;
         }
 
@@ -1452,7 +1457,7 @@ module.exports =
     {
         if ( !this.dpassBets.has( username ))
         {
-            this.userMessage( username, "you need a \"don't pass\" bet first." );
+            this.helpMessage( username, "you need a \"don't pass\" bet first." );
             return false;
         }
 
@@ -1469,7 +1474,7 @@ module.exports =
     {
         if ( this.point != 0 )
         {
-            this.userMessage( username, "you cannot bet \"don't pass\" when a point is set." );
+            this.helpMessage( username, "you cannot bet \"don't pass\" when a point is set." );
             return false;
         }
 
@@ -1480,13 +1485,13 @@ module.exports =
     {
         if ( this.firePointCount() > 0 )
         {
-            this.userMessage( username, "you cannot bet \"fire\" once a fire point has been made." );
+            this.helpMessage( username, "you cannot bet \"fire\" once a fire point has been made." );
             return false;
         }
 
         if ( this.point != 0 )
         {
-            this.userMessage( username, "you cannot bet \"fire\" when a point is set." );
+            this.helpMessage( username, "you cannot bet \"fire\" when a point is set." );
             return false;
         }
 
@@ -1504,7 +1509,7 @@ module.exports =
 
         if ( !this.comeBets[ this.number ].has( username ))
         {
-            this.crapsTable.userMessage( username, "you need a \"" + type + "\" bet on this number first." );
+            this.crapsTable.helpMessage( username, "you need a \"" + type + "\" bet on this number first." );
             return false;
         }
 
