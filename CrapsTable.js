@@ -211,6 +211,16 @@ module.exports =
         return prefix + ( amount / 100 ).toLocaleString( "en-US", { minimumFractionDigits: 2 } );
     },
 
+    safeParseInt( value )
+    {
+        // don't attempt to parse if the value is not entirely numeric
+        var regex = /^\d+$/;
+        if ( !regex.test( value )) return NaN;
+
+        // otherwise, parse the value with a radix of 10
+        return parseInt( value, 10 );
+    },
+
     getBet( username, betMap )
     {
         if ( betMap.has( username )) return betMap.get( username );
@@ -994,8 +1004,8 @@ module.exports =
             return;
         }
 
-        var die1 = parseInt( commandDataSplits[ 0 ] );
-        var die2 = parseInt( commandDataSplits[ 1 ] );
+        var die1 = this.safeParseInt( commandDataSplits[ 0 ] );
+        var die2 = this.safeParseInt( commandDataSplits[ 1 ] );
 
         if (( Number.isNaN( die1 )) || ( Number.isNaN( die2 )))
         {
@@ -1205,7 +1215,7 @@ module.exports =
             return Number.NaN;
         }
 
-        var number = parseInt( betData.split( " " )[ 0 ] );
+        var number = this.safeParseInt( betData.split( " " )[ 0 ] );
         if ( Number.isNaN( number ))
         {
             this.userMessage( username, "unable to parse number." );
@@ -1286,8 +1296,8 @@ module.exports =
             return;
         }
 
-        var die1 = parseInt( betDataSplits[ 0 ] );
-        var die2 = parseInt( betDataSplits[ 1 ] );
+        var die1 = this.safeParseInt( betDataSplits[ 0 ] );
+        var die2 = this.safeParseInt( betDataSplits[ 1 ] );
 
         if (( Number.isNaN( die1 )) || ( Number.isNaN( die2 )))
         {
@@ -1319,7 +1329,7 @@ module.exports =
             return;
         }
 
-        var amount = parseInt( betData.split( " " )[ 0 ] ) * 100;
+        var amount = this.safeParseInt( betData.split( " " )[ 0 ] ) * 100;
         if ( Number.isNaN( amount ))
         {
             this.userMessage( username, "unable to parse amount." );
