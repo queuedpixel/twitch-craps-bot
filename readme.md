@@ -68,7 +68,7 @@ Example: `!craps roll 3 4`
 
 #### Forcing Commands
 
-You can force other players to issue commands using the `!craps force` command.
+You can force other players to run commands using the `!craps force` command.
 You must first specify the username to run the command and then the command to run, without the `!craps` prefix.
 
 Example: `!craps force [username] bet pass 1`
