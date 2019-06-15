@@ -54,6 +54,7 @@ module.exports =
     betResults: new Map(),
     point: 0,
     banker: null,
+    bankerQueue: [],
     commandCooldownHelp: 0,
     commandCooldownBalance: [],
     commandCooldownBanker: [],
@@ -736,6 +737,7 @@ module.exports =
     {
         // allow all players to use once-per-roll commands again
         this.commandCooldownBalance = [];
+        this.commandCooldownBanker  = [];
         this.commandCooldownBets    = [];
 
         // print out the roll
@@ -839,11 +841,18 @@ module.exports =
             fs.writeFile( "players.json", JSON.stringify( [ ...this.playerBalances ], undefined, 4 ),
                           ( err ) => { if ( err ) throw err; } );
 
-            // reset the banker
-            this.commandCooldownBanker = [];
-            this.banker = null;
-            this.onMessage( "GivePLZ We need a new banker! TakeNRG" );
+            // select the next banker
+            if ( this.bankerQueue.length == 0 )
+            {
+                this.onMessage( "GivePLZ " + this.banker + " is still the banker. TakeNRG" );
+            }
+            else
+            {
+                this.banker = this.bankerQueue.shift();
+                this.onMessage( "GivePLZ " + this.banker + " is the new banker. TakeNRG" );
+            }
 
+            this.displayMaxPayout();
             this.stopRollTimer();
             this.canDisplayLeaderboard = true;
         }
@@ -1086,13 +1095,27 @@ module.exports =
 
         if ( this.banker != null )
         {
-            this.userMessage( username, this.banker + " is the banker." );
-            return;
-        }
+            if ( this.banker == username )
+            {
+                this.userMessage( username, "you're currently the banker." );
+                return;
+            }
 
-        this.banker = username;
-        this.userMessage( username, "you're the banker!" );
-        this.displayMaxPayout();
+            if ( this.bankerQueue.includes( username ))
+            {
+                this.userMessage( username, "you're currently in the banker queue." );
+                return;
+            }
+
+            this.bankerQueue.push( username );
+            this.userMessage( username, "you've been added to the banker queue." );
+        }
+        else
+        {
+            this.banker = username;
+            this.userMessage( username, "you're the banker!" );
+            this.displayMaxPayout();
+        }
     },
 
     betDispaly( username, betType, betMap )
