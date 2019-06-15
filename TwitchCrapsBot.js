@@ -34,6 +34,11 @@ var channel = "#" + config.channel;
 var crapsTable = require( "./CrapsTable.js" );
 var Util       = require( "./Util.js"       );
 
+function logMessage( username, message )
+{
+    console.log( "<" + username + ">: " + message );
+}
+
 crapsTable.onMessage = function( message ) { messageQueue.push( message ); };
 
 var messageQueue = [];
@@ -46,7 +51,9 @@ function processMessageQueue()
         return;
     }
 
-    client.say( channel, messageQueue.shift() );
+    var message = messageQueue.shift();
+    client.say( channel, message );
+    logMessage( twitchAuth.username.toLowerCase(), message );
 }
 
 function getTwitchAuth()
@@ -77,7 +84,7 @@ var options =
 {
     options:
     {
-        debug: true
+        debug: false
     },
     connection:
     {
@@ -95,13 +102,18 @@ var client = new twitch.client( options );
 
 client.on( "chat", function( chatChannel, userstate, message, self )
 {
-    if ( chatChannel != channel ) return; // skip if message is for another chat channel
-    if ( self ) return; // skip if the message is from us
+    // skip if message is for another chat channel
+    if ( chatChannel != channel ) return;
 
-    var commandName = Util.getCommandPrefix( message );
-    var commandData = Util.getCommandRemainder( message );
+    // skip if the message is from us
+    if ( userstate.username.toLowerCase() == twitchAuth.username.toLowerCase() ) return;
+
+    // log all chat messages
+    logMessage( userstate.username, message );
 
     // pass the message along to the craps table class if it contains the "!craps" prefix
+    var commandName = Util.getCommandPrefix( message );
+    var commandData = Util.getCommandRemainder( message );
     if ( commandName == "!craps" ) crapsTable.processCommand( userstate.username, commandData );
 } );
 
