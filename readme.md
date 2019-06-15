@@ -57,7 +57,7 @@ node TwitchCrapsBot.js
 
 ### Debugging Tools
 
-If the `debug` configuration is set to `true`, the following debug tools are available:
+If the `debug` configuration is set to `true`, the following debugging tools are available:
 
 #### Die Rolls
 
@@ -65,6 +65,13 @@ You can manually roll the dice using the `!craps roll` command.
 If you wish, you can specify the die values.
 
 Example: `!craps roll 3 4`
+
+#### Forcing Commands
+
+You can force other players to issue commands using the `!craps force` command.
+You must first specify the username to run the command and then the command to run, without the `!craps` prefix.
+
+Example: `!craps force [username] bet pass 1`
 
 #### Player Guide
 

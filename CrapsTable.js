@@ -969,6 +969,7 @@ module.exports =
 
         switch( commandName )
         {
+            case "force"   : this.forceCommand(   username, commandData ); break;
             case "roll"    : this.rollCommand(    username, commandData ); break;
             case "help"    : this.helpCommand(    username              ); break;
             case "balance" : this.balanceCommand( username              ); break;
@@ -979,19 +980,43 @@ module.exports =
         }
     },
 
-    rollCommand( username, commandData )
+    authorizeAdminCommand( username )
     {
         if ( username.toLowerCase() != config.owner.toLowerCase() )
         {
             this.userMessage( username, "you are not authorized to use this command." );
-            return;
+            return false;
         }
 
         if ( !config.debug )
         {
             this.userMessage( username, "enable debugging to use this command." );
+            return false;
+        }
+
+        return true;
+    },
+
+    forceCommand( username, commandData )
+    {
+        // skip if the user is not authorized to use admin commands
+        if ( !this.authorizeAdminCommand( username )) return;
+
+        if ( commandData.length == 0 )
+        {
+            this.userMessage( username, "you must specify who you are forcing to run a command." );
             return;
         }
+
+        var forcedUsername = Util.getCommandPrefix( commandData );
+        var forcedCommand  = Util.getCommandRemainder( commandData );
+        this.processCommand( forcedUsername, forcedCommand );
+    },
+
+    rollCommand( username, commandData )
+    {
+        // skip if the user is not authorized to use admin commands
+        if ( !this.authorizeAdminCommand( username )) return;
 
         if ( this.banker == null )
         {
