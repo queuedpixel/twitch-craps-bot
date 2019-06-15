@@ -119,4 +119,4 @@ client.on( "chat", function( chatChannel, userstate, message, self )
 
 client.connect();
 setInterval( processMessageQueue, config.messageInterval );
-crapsTable.init();
+crapsTable.init( twitchAuth.username.toLowerCase() );

@@ -53,6 +53,7 @@ module.exports =
     hopBets: [],
     betResults: new Map(),
     point: 0,
+    botUsername: null,
     banker: null,
     bankerQueue: [],
     commandCooldownHelp: 0,
@@ -93,8 +94,9 @@ module.exports =
         for ( var i = 4; i <= 10; i++ ) if ( i != 7 ) this.firePoints[ i ] = false;
     },
 
-    init()
+    init( botUsername )
     {
+        this.botUsername = botUsername;
         this.resetFirePoints();
 
         // initialize bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
@@ -196,6 +198,16 @@ module.exports =
         this.cooldownTimer();
         this.balanceAdjustmentTimer();
         this.rollTimer();
+    },
+
+    checkBanker()
+    {
+        if ( this.banker == null )
+        {
+            this.banker = this.botUsername;
+            this.onMessage( "GivePLZ " + this.banker + " is the banker. TakeNRG" );
+            this.displayMaxPayout();
+        }
     },
 
     // perform a random die roll
@@ -1024,11 +1036,7 @@ module.exports =
         // skip if the user is not authorized to use admin commands
         if ( !this.authorizeAdminCommand( username )) return;
 
-        if ( this.banker == null )
-        {
-            this.userMessage( username, "we need a banker before you can roll the dice." );
-            return;
-        }
+        this.checkBanker();
 
         if ( commandData.length == 0 )
         {
@@ -1181,11 +1189,7 @@ module.exports =
 
     betCommand( username, commandData )
     {
-        if ( this.banker == null )
-        {
-            this.helpMessage( username, "we need a banker before you can bet." );
-            return;
-        }
+        this.checkBanker();
 
         if ( this.banker == username )
         {
