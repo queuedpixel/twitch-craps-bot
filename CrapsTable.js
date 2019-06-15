@@ -255,9 +255,6 @@ module.exports =
 
     getBankerBalance()
     {
-        // ensure that there is a banker
-        if ( this.banker == null ) throw "There is no banker.";
-
         return this.getBalance( this.banker );
     },
 
