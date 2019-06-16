@@ -47,6 +47,11 @@ Bets that apply to a specific die roll (such as the `hop` bet) use this format:
 
 `!craps bet [type] [die1] [die2] [amount]`
 
+To bet the maximum amount, replace `[amount]` with `max`.
+For example: Use this command to make a pass bet for the maximum amount:
+
+`!craps bet pass max`
+
 Default maximum odds is 100x.
 
 ### Available Bets

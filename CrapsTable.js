@@ -403,7 +403,7 @@ module.exports =
             case 9  : return 3 / 2;
             case 6  :
             case 8  : return 6 / 5;
-            default : throw "Unrecognized number.";
+            default : return NaN;
         }
     },
 
@@ -1266,44 +1266,47 @@ module.exports =
         var betType = Util.getCommandPrefix( commandData );
         var betData = Util.getCommandRemainder( commandData );
 
-        if ( betType == "pass" ) this.handleBet( username, this.passBets, undefined, this.betWon, betData );
+        if ( betType == "pass" ) this.handleBet( username, this.passBets, undefined, undefined, this.betWon, betData );
         else if ( betType == "pass-odds" )
         {
             var payoutFunction = this.lightOddsWon.bind( { crapsTable: this, number: this.point } );
-            this.handleBet( username, this.passOddsBets, this.passOddsCheck.bind( this ), payoutFunction, betData );
+            this.handleBet( username, this.passOddsBets, this.passOddsMaxBet.bind( this ),
+                            this.passOddsCheck.bind( this ), payoutFunction, betData );
         }
         else if ( betType == "dpass" )
         {
-            this.handleBet( username, this.dpassBets, this.dpassCheck.bind( this ), this.betWon, betData );
+            this.handleBet( username, this.dpassBets, undefined, this.dpassCheck.bind( this ), this.betWon, betData );
         }
         else if ( betType == "dpass-odds" )
         {
             var payoutFunction = this.darkOddsWon.bind( { crapsTable: this, number: this.point } );
-            this.handleBet( username, this.dpassOddsBets, this.dpassOddsCheck.bind( this ), payoutFunction, betData );
+            this.handleBet( username, this.dpassOddsBets, this.dpassOddsMaxBet.bind( this ),
+                            this.dpassOddsCheck.bind( this ), payoutFunction, betData );
         }
         else if ( betType == "field" )
         {
             var payoutFunction = this.betWonMultiplier.bind( { multiplier: 3 } );
-            this.handleBet( username, this.fieldBets, undefined, payoutFunction, betData );
+            this.handleBet( username, this.fieldBets, undefined, undefined, payoutFunction, betData );
         }
         else if ( betType == "any-craps" )
         {
             var payoutFunction = this.betWonMultiplier.bind( { multiplier: 7.5 } );
-            this.handleBet( username, this.anyCrapsBets, undefined, payoutFunction, betData );
+            this.handleBet( username, this.anyCrapsBets, undefined, undefined, payoutFunction, betData );
         }
         else if ( betType == "any-seven" )
         {
             var payoutFunction = this.betWonMultiplier.bind( { multiplier: 4 } );
-            this.handleBet( username, this.anySevenBets, undefined, payoutFunction, betData );
+            this.handleBet( username, this.anySevenBets, undefined, undefined, payoutFunction, betData );
         }
         else if ( betType == "fire" )
         {
             var payoutFunction = this.betWonMultiplier.bind( { multiplier: 999 } );
-            this.handleBet( username, this.fireBets, this.fireCheck.bind( this ), payoutFunction, betData );
+            this.handleBet( username, this.fireBets, undefined, this.fireCheck.bind( this ), payoutFunction, betData );
         }
         else if ( betType == "come" )
         {
-            this.handleBet( username, this.comeBets[ 0 ], this.pointCheck.bind( this ), this.betWon, betData );
+            this.handleBet(
+                    username, this.comeBets[ 0 ], undefined, this.pointCheck.bind( this ), this.betWon, betData );
         }
         else if ( betType == "come-odds" )
         {
@@ -1311,7 +1314,8 @@ module.exports =
         }
         else if ( betType == "dcome" )
         {
-            this.handleBet( username, this.dcomeBets[ 0 ], this.pointCheck.bind( this ), this.betWon, betData );
+            this.handleBet(
+                    username, this.dcomeBets[ 0 ], undefined, this.pointCheck.bind( this ), this.betWon, betData );
         }
         else if ( betType == "dcome-odds" )
         {
@@ -1377,15 +1381,16 @@ module.exports =
         var number = this.getBetPoint( username, betData );
         if ( Number.isNaN( number )) return;
 
-        var checkParams = { crapsTable: this, comeBets: comeBets, number: number, isLight: isLight }
-        var checkFunction = this.comeOddsCheck.bind( checkParams );
+        var bindParams = { crapsTable: this, comeBets: comeBets, number: number, isLight: isLight };
+        var checkFunction = this.comeOddsCheck.bind( bindParams );
+        var maxBetFunction = this.comeOddsMaxBet.bind( bindParams );
 
         var payoutFunction = isLight ?
                              this.lightOddsWon.bind( { crapsTable: this, number: number } ) :
                              this.darkOddsWon.bind( { crapsTable: this, number: number } );
 
         var amountData = Util.getCommandRemainder( betData );
-        this.handleBet( username, comeOddsBets[ number ], checkFunction, payoutFunction, amountData );
+        this.handleBet( username, comeOddsBets[ number ], maxBetFunction, checkFunction, payoutFunction, amountData );
     },
 
     handleNumberBet( username, bets, payoutFunction, betData )
@@ -1394,7 +1399,7 @@ module.exports =
         if ( Number.isNaN( number )) return;
         payoutFunction = payoutFunction.bind( { crapsTable: this, number: number } );
         var amountData = Util.getCommandRemainder( betData );
-        this.handleBet( username, bets[ number ], undefined, payoutFunction, amountData );
+        this.handleBet( username, bets[ number ], undefined, undefined, payoutFunction, amountData );
     },
 
     handleHardBet( username, betData )
@@ -1403,7 +1408,7 @@ module.exports =
         if ( Number.isNaN( number )) return;
         var payoutFunction = this.hardwayWon.bind( { crapsTable: this, number: number } );
         var amountData = Util.getCommandRemainder( betData );
-        this.handleBet( username, this.hardBets[ number ], undefined, payoutFunction, amountData );
+        this.handleBet( username, this.hardBets[ number ], undefined, undefined, payoutFunction, amountData );
     },
 
     handleHopBet( username, betData )
@@ -1438,10 +1443,10 @@ module.exports =
         var payoutFunction = this.hopWon.bind( { crapsTable: this, die1: i, die2: j } );
         var prefix = betDataSplits[ 0 ] + " " + betDataSplits[ 1 ];
         var amountData = betData.substring( prefix.length ).trim();
-        this.handleBet( username, this.hopBets[ i ][ j ], undefined, payoutFunction, amountData );
+        this.handleBet( username, this.hopBets[ i ][ j ], undefined, undefined, payoutFunction, amountData );
     },
 
-    handleBet( username, bets, checkFunction, payoutFunction, betData )
+    handleBet( username, bets, maxBetFunction, checkFunction, payoutFunction, betData )
     {
         if ( betData.length == 0 )
         {
@@ -1449,7 +1454,61 @@ module.exports =
             return;
         }
 
-        var amount = this.safeParseInt( Util.getCommandPrefix( betData )) * 100;
+        // get the max payout permitted by the banker
+        var maxPayout = this.getMaxPayout();
+
+        // limit payout to available banker balance, if the available banker balance is smaller
+        var availableBankerBalance = this.getAvailableBankerBalance();
+        if ( availableBankerBalance < maxPayout ) maxPayout = availableBankerBalance;
+
+        // determine the max bet with a payout less than or equal to the max payout
+        var payoutFactor = payoutFunction();
+        var maxBet = maxPayout / payoutFactor;
+
+        // If the max bet is not a number, we have a problem that will be caught by another check below.
+        // In that case: Set max bet to infinity to get past the max bet checks.
+        if ( Number.isNaN( maxBet )) maxBet = Infinity;
+
+        // if needed: allow a max bet of at least one whole unit, provided the banker has a large enough balance
+        if (( maxBet < 100 ) && ( 100 * payoutFactor <= availableBankerBalance )) maxBet = 100;
+
+        // ensure that the banker can accept this bet for any amount
+        if ( maxBet < 100 )
+        {
+            this.userMessage( username,
+                              "banker cannot accept this bet for any amount; banker balance: " +
+                              this.formatCurrency( availableBankerBalance ));
+            return;
+        }
+
+        // limit max bet to your available balance
+        var availableBalance = this.getAvailableBalance( username );
+        if ( maxBet > availableBalance ) maxBet = availableBalance;
+
+        // limit max bet to the result of the max bet function, if it is defined
+        if ( maxBetFunction !== undefined )
+        {
+            var result = maxBetFunction( username );
+            if ( maxBet > result ) maxBet = result;
+        }
+
+        // floor the max bet to a whole unit of currency
+        maxBet = Math.floor( maxBet / 100 ) * 100;
+
+        var rawAmount = Util.getCommandPrefix( betData );
+        var amount = this.safeParseInt( rawAmount ) * 100;
+        if ( rawAmount == "max" )
+        {
+            if ( maxBet < 100 )
+            {
+                this.userMessage(
+                        username, "your available balance is too low: " + this.formatCurrency( availableBalance ));
+                return;
+            }
+
+            amount = maxBet;
+        }
+
         if ( Number.isNaN( amount ))
         {
             this.helpMessage( username, "unable to parse amount." );
@@ -1462,11 +1521,11 @@ module.exports =
             return;
         }
 
-        var availableBalance = this.getAvailableBalance( username );
         if ( amount > availableBalance )
         {
-            this.userMessage(
-                    username, "bet exceeds your available balance: " + this.formatCurrency( availableBalance ));
+            this.userMessage( username,
+                              "bet exceeds your available balance: " + this.formatCurrency( availableBalance ) +
+                              "; maximum allowed bet: " + this.formatCurrency( maxBet ));
             return;
         }
 
@@ -1479,32 +1538,8 @@ module.exports =
         // call check function, if it is defined
         if (( checkFunction !== undefined ) && ( !checkFunction( username, amount ))) return;
 
-        // determine the largest bet permitted by the banker
-        var bankerBalance = this.getBankerBalance();
-        var availableBankerBalance = this.getAvailableBankerBalance();
-        var maxPayout = this.getMaxPayout();
-        var payout = payoutFunction();
-
-        // limit payout to available banker balance, if the available banker balance is smaller
-        if ( availableBankerBalance < maxPayout ) maxPayout = availableBankerBalance;
-
-        var maxBet = maxPayout / payout; // determine the largest bet with a payout less than or equal to the max payout
-        maxBet = Math.floor( maxBet / 100 ) * 100; // floor the max to a whole unit of currency
-
-        // if needed: allow a maximum bet of at least one whole unit, provided the banker has a large enough balance
-        if (( maxBet < 100 ) && ( 100 * payout <= availableBankerBalance )) maxBet = 100;
-
-        // ensure that the banker can accept this bet for any amount
-        if ( maxBet < 100 )
-        {
-            this.userMessage( username,
-                              "banker cannot accept this bet for any amount; banker balance: " +
-                              this.formatCurrency( availableBankerBalance ));
-            return;
-        }
-
         // ensure that the banker has sufficient balance to accomodate the largest possible payout for the bet
-        var amountPayout = Math.floor( payout * amount );
+        var amountPayout = Math.floor( payoutFactor * amount );
         if ( amountPayout > availableBankerBalance )
         {
             this.userMessage( username,
@@ -1634,5 +1669,29 @@ module.exports =
         }
 
         return true;
+    },
+
+    passOddsMaxBet( username )
+    {
+        var baseAmount = this.passBets.get( username );
+        return baseAmount * config.maxOdds;
+    },
+
+    dpassOddsMaxBet( username )
+    {
+        var baseAmount = this.dpassBets.get( username );
+        return baseAmount * config.maxOdds * this.oddsMultiplier( this.point );
+    },
+
+    // you must bind an object to this function as follows:
+    // - crapsTable: reference to the craps table object
+    // - comeBets: the come bets array containing the corresponding come bets for the come odds bet
+    // - number: the point for the come odds
+    // - isLight: true for "come-odds" bets, false for "dcome-odds" bets
+    comeOddsMaxBet( username )
+    {
+        var baseAmount = this.comeBets[ this.number ].get( username );
+        var oddsMultiplier = this.isLight ? 1 : this.crapsTable.oddsMultiplier( this.number );
+        return baseAmount * config.maxOdds * oddsMultiplier;
     }
 };
