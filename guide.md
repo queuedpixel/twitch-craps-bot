@@ -17,14 +17,19 @@ The bot will continue to roll the dice as long as there are bets remaining.
 
 Players serve as the banker for the craps table.
 Bets that are won are paid out by the banker and bets that are lost are paid to the banker.
+
 Players can serve as the banker using the `!craps banker` command.
-Note that you cannot bet when you are the banker.
+If we already have a banker, players go into a queue to become the banker later.
+Players can stop serving as the banker using the `!craps banker-stop` command.
+
+Players cannot bet while they are the banker.
 
 ## Command Guide
 
 * `!craps help` - Show a link to this guide.
 * `!craps balance` - Show your current balance.
 * `!craps banker` - Serve as the banker.
+* `!craps banker-stop` - Stop serving as the banker.
 * `!craps bets` - Show your current bets.
 * `!craps bet [type] [amount]` - Place a bet of the specified type with the specified amount.
 

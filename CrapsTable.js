@@ -56,9 +56,11 @@ module.exports =
     botUsername: null,
     banker: null,
     bankerQueue: [],
+    removeBanker: false,
     commandCooldownHelp: 0,
     commandCooldownBalance: [],
     commandCooldownBanker: [],
+    commandCooldownBankerStop: [],
     commandCooldownBets: [],
     balanceAdjustmentCounter: 0,
     rollTimerRunning: false,
@@ -745,9 +747,10 @@ module.exports =
     processRoll( die1, die2 )
     {
         // allow all players to use once-per-roll commands again
-        this.commandCooldownBalance = [];
-        this.commandCooldownBanker  = [];
-        this.commandCooldownBets    = [];
+        this.commandCooldownBalance    = [];
+        this.commandCooldownBanker     = [];
+        this.commandCooldownBankerStop = [];
+        this.commandCooldownBets       = [];
 
         // print out the roll
         var dieTotal = die1 + die2;
@@ -843,8 +846,8 @@ module.exports =
         var betResultsDisplayed = this.betResults.size > 0;
         this.showBetResults();
 
-        // if there are no bets and no point: stop the roll timer (among other things)
-        if (( !this.betsExist() ) && ( this.point == 0 ))
+        // if the table is not active: stop the roll timer (among other things)
+        if ( !this.isTableActive() )
         {
             // save player balances
             fs.writeFile( "players.json", JSON.stringify( [ ...this.playerBalances ], undefined, 4 ),
@@ -853,15 +856,22 @@ module.exports =
             // select the next banker
             if ( this.bankerQueue.length == 0 )
             {
-                this.onMessage( "GivePLZ " + this.banker + " is still the banker. TakeNRG" );
+                if ( this.removeBanker )
+                {
+                    this.banker = null;
+                    this.removeBanker = false;
+                    this.onMessage( "GivePLZ We need a new banker! TakeNRG" );
+                }
+                else this.onMessage( "GivePLZ " + this.banker + " is still the banker. TakeNRG" );
             }
             else
             {
                 this.banker = this.bankerQueue.shift();
+                this.removeBanker = false;
                 this.onMessage( "GivePLZ " + this.banker + " is the new banker. TakeNRG" );
             }
 
-            this.displayMaxPayout();
+            if ( this.banker != null ) this.displayMaxPayout();
             this.stopRollTimer();
             this.canDisplayLeaderboard = true;
         }
@@ -872,6 +882,12 @@ module.exports =
             if ( betResultsDisplayed ) this.displayMaxPayout();
             this.startRollTimer();
         }
+    },
+
+    isTableActive()
+    {
+        // table is active if bets exist or if we have a point
+        return ( this.betsExist() || this.point != 0 );
     },
 
     betsExist()
@@ -987,13 +1003,14 @@ module.exports =
 
         switch( commandName )
         {
-            case "force"   : this.forceCommand(   username, commandData ); break;
-            case "roll"    : this.rollCommand(    username, commandData ); break;
-            case "help"    : this.helpCommand(    username              ); break;
-            case "balance" : this.balanceCommand( username              ); break;
-            case "banker"  : this.bankerCommand(  username              ); break;
-            case "bets"    : this.betsCommand(    username              ); break;
-            case "bet"     : this.betCommand(     username, commandData ); break;
+            case "force"       : this.forceCommand(      username, commandData ); break;
+            case "roll"        : this.rollCommand(       username, commandData ); break;
+            case "help"        : this.helpCommand(       username              ); break;
+            case "balance"     : this.balanceCommand(    username              ); break;
+            case "banker"      : this.bankerCommand(     username              ); break;
+            case "banker-stop" : this.bankerStopCommand( username              ); break;
+            case "bets"        : this.betsCommand(       username              ); break;
+            case "bet"         : this.betCommand(        username, commandData ); break;
             default : this.helpMessage( username, "uncrecognized command." );
         }
     },
@@ -1082,7 +1099,7 @@ module.exports =
 
     balanceCommand( username )
     {
-        // skip if the player has already viewed their balance since the last die roll
+        // skip if the player has already run this command since the last die roll
         if ( this.commandCooldown( username, this.commandCooldownBalance )) return;
 
         var balance = this.getBalance( username );
@@ -1093,9 +1110,9 @@ module.exports =
         this.userMessage( username, message );
     },
 
-    bankerCommand( username, command )
+    bankerCommand( username )
     {
-        // skip if the player has run the banker command during this shooting sequence
+        // skip if the player has already run this command since the last die roll
         if ( this.commandCooldown( username, this.commandCooldownBanker )) return;
 
         if ( this.banker != null )
@@ -1123,6 +1140,49 @@ module.exports =
         }
     },
 
+    bankerStopCommand( username )
+    {
+        // skip if the player has already run this command since the last die roll
+        if ( this.commandCooldown( username, this.commandCooldownBankerStop )) return;
+
+        if ( this.banker != username )
+        {
+            if ( !this.bankerQueue.includes( username ))
+            {
+                // user is not currently the banker and is not in the banker queue
+                this.userMessage( username, "you're not currently the banker or in the banker queue." );
+            }
+            else
+            {
+                // user is not currently the banker but is in the banker queue
+                var newBankerQueue = [];
+                while ( this.bankerQueue.length != 0 )
+                {
+                    var bankerName = this.bankerQueue.shift();
+                    if ( bankerName != username ) newBankerQueue.push( bankerName );
+                }
+
+                this.bankerQueue = newBankerQueue;
+                this.userMessage( username, "you've been removed from the banker queue." );
+            }
+        }
+        else
+        {
+            if ( this.isTableActive() )
+            {
+                // user is currently the banker and the table is active
+                this.removeBanker = true;
+                this.userMessage( username, "you'll be removed as banker as soon as possible." );
+            }
+            else
+            {
+                // user is currently the banker and the table is not active
+                this.banker = null;
+                this.userMessage( username, "you're no longer the banker." );
+            }
+        }
+    },
+
     betDispaly( username, betType, betMap )
     {
         // skip bet display for bets that don't exist (such as come odds for index 0)
@@ -1139,7 +1199,7 @@ module.exports =
 
     betsCommand( username )
     {
-        // skip if the player has already viewed their bets since the last die roll
+        // skip if the player has already run this command since the last die roll
         if ( this.commandCooldown( username, this.commandCooldownBets )) return;
 
         var betsFound = false;
