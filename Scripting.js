@@ -28,6 +28,12 @@ var Util = require( "./Util.js" );
 
 module.exports =
 {
+    // override this function to process scripting commands
+    externalProcessScriptingCommand( username, command )
+    {
+        return false;
+    },
+
     // process scripting commands; return true if a command was processed, false otherwise
     processCommand( username, command )
     {
@@ -37,19 +43,29 @@ module.exports =
         switch( commandName )
         {
             case "eval" : this.evalCommand( username, commandData ); return true;
-            default : return false;
         }
+
+        return false;
     },
 
     processScriptingCommand( username, command )
     {
+        if ( command.length == 0 )
+        {
+            this.errorMessage( username, "No command specified." );
+            return;
+        }
+
         var commandName = Util.getCommandPrefix( command );
         var commandData = Util.getCommandRemainder( command );
+
+        // allow the external system to process the command rather than this function
+        if ( this.externalProcessScriptingCommand( username, command )) return;
 
         switch( commandName )
         {
             case "print" : this.printCommand( username, commandData ); break;
-            default : this.errorMessage( username, "Unrecognized command: " + commandName ); break;
+            default : this.errorMessage( username, "Unrecognized Command: " + commandName ); break;
         }
     },
 
@@ -60,12 +76,17 @@ module.exports =
 
     printCommand( username, commandData )
     {
-        this.userMessage( username, "PRINT - " + commandData );
+        this.userMessage( username, "print - " + commandData );
     },
 
     errorMessage( username, message )
     {
-        this.userMessage( username, "ERROR - " + message );
+        this.userMessage( username, "error - " + message );
+    },
+
+    infoMessage( username, message )
+    {
+        this.userMessage( username, "info - " + message );
     },
 
     userMessage( username, message )
