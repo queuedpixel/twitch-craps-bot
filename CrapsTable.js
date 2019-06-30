@@ -52,6 +52,9 @@ module.exports =
     hardBets: [],
     hopBets: [],
     betResults: new Map(),
+    die1: 0,
+    die2: 0,
+    dieTotal: 0,
     point: 0,
     botUsername: null,
     banker: null,
@@ -103,6 +106,7 @@ module.exports =
         this.botUsername = botUsername;
         this.resetFirePoints();
         scripting.externalProcessScriptingCommand = this.processScriptingCommand.bind( this );
+        scripting.externalVariableReference = this.scriptingVariableReference.bind( this );
 
         // initialize bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
@@ -205,9 +209,26 @@ module.exports =
         this.rollTimer();
     },
 
+    // handle scripting variable references
+    scriptingVariableReference( username, varName )
+    {
+        switch( varName )
+        {
+            case "die1"           : return this.die1;
+            case "die2"           : return this.die2;
+            case "dieTotal"       : return this.dieTotal;
+            case "point"          : return this.point;
+            case "maxPayout"      : return this.getMaxPayout() / 100;
+            case "fireBetAllowed" : return ( this.firePointCount() == 0 ) && ( this.point == 0 );
+            case "balance"        : return this.getBalance( username ) / 100;
+        }
+
+        return null;
+    },
+
     checkBanker()
     {
-        if ( this.banker == null )
+        if ( this.banker === null )
         {
             this.banker = this.botUsername;
             this.onMessage( "GivePLZ " + this.banker + " is the banker. TakeNRG" );
@@ -272,6 +293,7 @@ module.exports =
 
     getBankerBalance()
     {
+        this.checkBanker();
         return this.getBalance( this.banker );
     },
 
@@ -765,6 +787,13 @@ module.exports =
         var dieTotal = die1 + die2;
         var pointDisplay = this.point == 0 ? "No Point" : "Point: " + this.point;
         this.onMessage( "GivePLZ " + pointDisplay + ", Roll: " + die1 + " " + die2 + " (" + dieTotal + ") TakeNRG" );
+
+        // preserve the die values
+        this.die1 = die1;
+        this.die2 = die2;
+        this.dieTotal = dieTotal;
+
+        // process bets
         this.processComeBets( dieTotal );
         this.processNumberBets( dieTotal );
         this.processFieldBets( dieTotal );
@@ -880,7 +909,7 @@ module.exports =
                 this.onMessage( "GivePLZ " + this.banker + " is the new banker. TakeNRG" );
             }
 
-            if ( this.banker != null ) this.displayMaxPayout();
+            if ( this.banker !== null ) this.displayMaxPayout();
             this.stopRollTimer();
             this.canDisplayLeaderboard = true;
         }
@@ -1140,7 +1169,7 @@ module.exports =
         // skip if the player has already run this command since the last die roll
         if ( this.commandCooldown( username, this.commandCooldownBanker )) return;
 
-        if ( this.banker != null )
+        if ( this.banker !== null )
         {
             if ( this.banker == username )
             {

@@ -34,6 +34,95 @@ module.exports =
         return false;
     },
 
+    // override this function to process variable references
+    externalVariableReference( username, varName )
+    {
+        return null;
+    },
+
+    evalCompoundStatement( username, compoundStatement )
+    {
+        this.debugMessage( username, "Evaluating Compound Statement: " + compoundStatement );
+
+        var statements = compoundStatement.split( ";" );
+        statements.forEach( function( statement )
+        {
+            statement = statement.trim();
+            this.evalStatement( username, statement );
+        }.bind( this ));
+    },
+
+    evalStatement( username, statement )
+    {
+        this.debugMessage( username, "Evaluating Single Statement: " + statement );
+
+        var expressionsRemain = true;
+        while ( expressionsRemain )
+        {
+            // check for opening bracket, indicating the start of an expression
+            var expressionStart = statement.indexOf( "{" );
+            if ( expressionStart >= 0 )
+            {
+                // ensure that we have a closing bracket
+                var expressionEnd = statement.indexOf( "}" );
+                if ( expressionEnd < 0 )
+                {
+                    this.errorMessage( username, "Missing closing bracket: }" );
+                    return;
+                }
+
+                // ensure that the closing bracket appears after the opening bracket
+                if ( expressionEnd < expressionStart )
+                {
+                    this.errorMessage( username, "Missing opening bracket: {" );
+                    return;
+                }
+
+                // evaluate the expression
+                var expression = statement.substring( expressionStart + 1, expressionEnd );
+                var result = this.evalExpression( username, expression );
+                if ( result === null )
+                {
+                    this.errorMessage( username, "Failed to evaluate expression." );
+                    return;
+                }
+
+                // replace the expression in the statement with the evaluation result
+                statement = statement.replace( "{" + expression + "}", result );
+                this.debugMessage( username, "After Expression Evaluation: " + statement );
+            }
+            else
+            {
+                // when there is no opening bracket, ensure that there is no mismatched closing bracket
+                var expressionEnd = statement.indexOf( "}" );
+                if ( expressionEnd >= 0 )
+                {
+                    this.errorMessage( username, "Missing opening bracket: {" );
+                    return;
+                }
+
+                expressionsRemain = false;
+            }
+        }
+
+        this.processScriptingCommand( username, statement );
+    },
+
+    evalExpression( username, expression )
+    {
+        this.debugMessage( username, "Evaluating Expression: " + expression );
+
+        var result = this.externalVariableReference( username, expression );
+        if ( result === null )
+        {
+            this.errorMessage( username, "Unable to find variable: " + expression );
+            return null;
+        }
+
+        this.debugMessage( username, "Result: " + result );
+        return result;
+    },
+
     // process scripting commands; return true if a command was processed, false otherwise
     processCommand( username, command )
     {
@@ -71,15 +160,7 @@ module.exports =
 
     evalCommand( username, commandData )
     {
-        this.debugMessage( username, "Evaluating Compound Statement: " + commandData );
-
-        var statements = commandData.split( ";" );
-        statements.forEach( function( statement )
-        {
-            statement = statement.trim();
-            this.debugMessage( username, "Evaluating Single Statement: " + statement );
-            this.processScriptingCommand( username, statement );
-        }.bind( this ));
+        this.evalCompoundStatement( username, commandData );
     },
 
     printCommand( username, commandData )
