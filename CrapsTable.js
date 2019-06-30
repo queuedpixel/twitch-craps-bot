@@ -143,7 +143,6 @@ module.exports =
             if ( err )
             {
                 console.log( "Unable to read \"players.json\". Resetting player balances." );
-                console.log( "" );
                 return;
             }
 
