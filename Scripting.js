@@ -71,7 +71,15 @@ module.exports =
 
     evalCommand( username, commandData )
     {
-        this.processScriptingCommand( username, commandData );
+        this.debugMessage( username, "Evaluating Compound Statement: " + commandData );
+
+        var statements = commandData.split( ";" );
+        statements.forEach( function( statement )
+        {
+            statement = statement.trim();
+            this.debugMessage( username, "Evaluating Single Statement: " + statement );
+            this.processScriptingCommand( username, statement );
+        }.bind( this ));
     },
 
     printCommand( username, commandData )
@@ -87,6 +95,11 @@ module.exports =
     infoMessage( username, message )
     {
         this.userMessage( username, "info - " + message );
+    },
+
+    debugMessage( username, message )
+    {
+        this.userMessage( username, "debug - " + message );
     },
 
     userMessage( username, message )
