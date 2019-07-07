@@ -81,15 +81,10 @@ module.exports =
                 // evaluate the expression
                 var expression = statement.substring( expressionStart + 1, expressionEnd );
                 var result = this.evalExpression( username, expression, indent + 1 );
-                if ( result === null )
-                {
-                    this.errorMessage( username, "Failed to evaluate expression.", indent );
-                    return;
-                }
+                if ( result === null ) return;
 
                 // replace the expression in the statement with the evaluation result
                 statement = statement.replace( "{" + expression + "}", result.value );
-                this.debugMessage( username, "After Expression Evaluation: " + statement, indent );
             }
             else
             {
@@ -105,29 +100,18 @@ module.exports =
             }
         }
 
+        this.debugMessage( username, "After Expression Evaluation: " + statement, indent );
         this.processScriptingCommand( username, statement );
     },
 
     evalExpression( username, expression, indent )
     {
-        this.debugMessage( username, "Evaluating Expression: " + expression, indent );
+        this.debugMessage( username, "Evaluating Expression: {" + expression + "}", indent );
 
         var tokens = this.tokenize( username, expression, indent + 1 );
-        if ( tokens === null )
-        {
-            this.errorMessage( username, "Failed to tokenize expression.", indent );
-            return null;
-        }
+        if ( tokens === null ) return null;
 
-        var result = this.evalTokens( username, tokens, indent + 1 );
-        if ( result === null )
-        {
-            this.errorMessage( username, "Failed to evaluate tokens.", indent );
-            return null;
-        }
-
-        this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
-        return result;
+        return this.evalTokens( username, tokens, indent + 1 );
     },
 
     // process scripting commands; return true if a command was processed, false otherwise
@@ -173,10 +157,15 @@ module.exports =
                     continue;
                 }
 
-                // look for plus sign
                 if ( character == "+" )
                 {
                     tokens.push( { type: "plus" } );
+                    continue;
+                }
+
+                if ( character == ">" )
+                {
+                    tokens.push( { type: "greaterThan" } );
                     continue;
                 }
 
@@ -228,11 +217,11 @@ module.exports =
 
     evalTokens( username, tokens, indent )
     {
-        var tokenMessage = "Evaluating Tokens:";
+        var tokenMessage = "Evaluating Tokens: ";
         for ( var i = 0; i < tokens.length; i++ )
         {
-            if ( i != 0 ) tokenMessage += ",";
-            tokenMessage += " " + this.tokenToString( tokens[ i ] );
+            if ( i != 0 ) tokenMessage += ", ";
+            tokenMessage += this.tokenToString( tokens[ i ] );
         }
 
         this.debugMessage( username, tokenMessage, indent );
@@ -246,10 +235,11 @@ module.exports =
         // handle single tokens
         if ( tokens.length == 1 )
         {
-            if ( tokens[ 0 ].type == "identifier" )
+            var token = tokens[ 0 ];
+            if ( token.type == "identifier" )
             {
-                var varName = tokens[ 0 ].name;
-                this.debugMessage( username, "Variable Lookup: " + varName, indent );
+                var varName = token.name;
+                this.debugMessage( username, "Variable: " + varName, indent );
 
                 var result = this.externalVariableReference( username, varName );
                 if ( result === null )
@@ -258,10 +248,10 @@ module.exports =
                     return null;
                 }
 
-                this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
+                this.debugMessage( username, "Value: " + this.tokenToString( result ), indent );
                 return result;
             }
-            else if ( tokens[ 0 ].type == "integer" ) return tokens[ 0 ];
+            else if ( token.type == "integer" ) return token;
             else
             {
                 this.errorMessage( username, "Unable to evaluate.", indent );
@@ -269,51 +259,77 @@ module.exports =
             }
         }
 
-        // handle plus operator
-        if ( tokens[ 1 ].type == "plus" )
+        return this.evalOperator( username, tokens, indent );
+    },
+
+    evalOperator( username, tokens, indent )
+    {
+        this.debugMessage( username, "Handling Operator", indent );
+
+        var operationType;
+        var operationFunction;
+
+        var operatorToken = tokens[ 1 ];
+        if ( operatorToken.type == "plus" )
         {
-            this.debugMessage( username, "Handling Plus", indent );
-            this.debugMessage( username, "Left Value:", indent );
-            var leftValue = this.evalTokens( username, tokens.slice( 0, 1 ), indent + 1 );
-            if ( leftValue === null )
-            {
-                this.errorMessage( username, "Unable to evaluate left value.", indent );
-                return null;
-            }
-
-            this.debugMessage( username, "Right Value:", indent );
-            var rightValue = this.evalTokens( username, tokens.slice( 2 ), indent + 1 );
-            if ( rightValue === null )
-            {
-                this.errorMessage( username, "Unable to evaluate right value.", indent );
-                return null;
-            }
-
-            var message = "Adding " + this.tokenToString( leftValue ) + " and " + this.tokenToString( rightValue );
-            this.debugMessage( username, message, indent );
-
-            if ( leftValue.type != rightValue.type )
-            {
-                this.errorMessage(
-                        username, "Unable to add " + leftValue.type + " and " + rightValue.type + ".", indent );
-                return null;
-            }
-
-            if (( leftValue.type != "integer" ) && ( leftValue.type != "float" ))
-            {
-                this.errorMessage( username, "Unable to add " + leftValue.type + " values.", indent );
-                return null;
-            }
-
-            var result = { type: leftValue.type, value: leftValue.value + rightValue.value };
-            this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
-            return result;
+            operationType = "Plus";
+            operationFunction = this.plusOperation.bind( this );
+        }
+        else if ( operatorToken.type == "greaterThan" )
+        {
+            operationType = "Greater Than";
+            operationFunction = this.greaterThanOperation.bind( this );
         }
         else
         {
-            this.errorMessage( username, "Expected operator, but got: " + this.tokenToString( tokens[ 1 ] ), indent );
+            this.errorMessage( username, "Expected operator, but got: " + this.tokenToString( operatorToken ), indent );
             return null;
         }
+
+        this.debugMessage( username, "Left Value:", indent );
+        var leftValue = this.evalTokens( username, tokens.slice( 0, 1 ), indent + 1 );
+        if ( leftValue === null ) return null;
+
+        this.debugMessage( username, "Right Value:", indent );
+        var rightValue = this.evalTokens( username, tokens.slice( 2 ), indent + 1 );
+        if ( rightValue === null ) return null;
+
+        var message = "Operation: " + operationType +
+                      ", Left: " + this.tokenToString( leftValue ) +
+                      ", Right: " + this.tokenToString( rightValue );
+        this.debugMessage( username, message, indent );
+
+        var result = operationFunction( username, leftValue, rightValue, indent );
+        if ( result === null ) return null;
+        this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
+        return result;
+    },
+
+    plusOperation( username, leftValue, rightValue, indent )
+    {
+        if ((( leftValue.type  != "integer" ) && ( leftValue.type  != "float" )) ||
+            (( rightValue.type != "integer" ) && ( rightValue.type != "float" )))
+        {
+            this.errorMessage(
+                    username, "Unable to add " + leftValue.type + " and " + rightValue.type + ".", indent );
+            return null;
+        }
+
+        var type = (( leftValue.type == "float" ) || ( rightValue.type == "float" )) ? "float" : "integer";
+        return { type: type, value: leftValue.value + rightValue.value };
+    },
+
+    greaterThanOperation( username, leftValue, rightValue, indent )
+    {
+        if ((( leftValue.type  != "integer" ) && ( leftValue.type  != "float" )) ||
+            (( rightValue.type != "integer" ) && ( rightValue.type != "float" )))
+        {
+            this.errorMessage(
+                    username, "Unable to compare " + leftValue.type + " and " + rightValue.type + ".", indent );
+            return null;
+        }
+
+        return { type: "boolean", value: leftValue.value > rightValue.value };
     },
 
     tokenToString( token )
