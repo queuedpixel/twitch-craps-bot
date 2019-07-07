@@ -141,9 +141,10 @@ module.exports =
         // possible states:
         // - 0 : start state
         // - 1 : processing identifier
+        // - 2 : processing literal integer
         var state = 0;
 
-        var identifier = "";
+        var token = "";
 
         for ( var i = 0; i < expression.length; i++ )
         {
@@ -159,8 +160,16 @@ module.exports =
                     (( character >= "A" ) && ( character <= "Z" )) ||
                     ( character == "_" ))
                 {
-                    identifier = character;
+                    token = character;
                     state = 1;
+                    continue;
+                }
+
+                // look for the the start of a literal integer
+                if (( character >= "0" ) && ( character <= "9" ))
+                {
+                    token = character;
+                    state = 2;
                     continue;
                 }
 
@@ -182,12 +191,27 @@ module.exports =
                     (( character >= "0" ) && ( character <= "9" )) ||
                     ( character == "_" ))
                 {
-                    identifier += character;
+                    token += character;
                     continue;
                 }
 
                 // otherwise, assume we are done with the identifier
-                tokens.push( { type: "identifier", name: identifier } );
+                tokens.push( { type: "identifier", name: token } );
+                state = 0;
+                i--; // process this character again with the new state
+                continue;
+            }
+            else if ( state == 2 )
+            {
+                // look for the the next character of the integer
+                if (( character >= "0" ) && ( character <= "9" ))
+                {
+                    token += character;
+                    continue;
+                }
+
+                // otherwise, assume we are done with the integer
+                tokens.push( { type: "integer", value: parseInt( token, 10 ) } );
                 state = 0;
                 i--; // process this character again with the new state
                 continue;
@@ -237,6 +261,7 @@ module.exports =
                 this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
                 return result;
             }
+            else if ( tokens[ 0 ].type == "integer" ) return tokens[ 0 ];
             else
             {
                 this.errorMessage( username, "Unable to evaluate.", indent );
