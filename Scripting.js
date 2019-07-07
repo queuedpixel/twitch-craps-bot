@@ -40,21 +40,21 @@ module.exports =
         return null;
     },
 
-    evalCompoundStatement( username, compoundStatement )
+    evalCompoundStatement( username, compoundStatement, indent )
     {
-        this.debugMessage( username, "Evaluating Compound Statement: " + compoundStatement );
+        this.debugMessage( username, "Evaluating Compound Statement: " + compoundStatement, indent );
 
         var statements = compoundStatement.split( ";" );
         statements.forEach( function( statement )
         {
             statement = statement.trim();
-            this.evalStatement( username, statement );
+            this.evalStatement( username, statement, indent + 1 );
         }.bind( this ));
     },
 
-    evalStatement( username, statement )
+    evalStatement( username, statement, indent )
     {
-        this.debugMessage( username, "Evaluating Single Statement: " + statement );
+        this.debugMessage( username, "Evaluating Single Statement: " + statement, indent );
 
         var expressionsRemain = true;
         while ( expressionsRemain )
@@ -67,29 +67,29 @@ module.exports =
                 var expressionEnd = statement.indexOf( "}" );
                 if ( expressionEnd < 0 )
                 {
-                    this.errorMessage( username, "Missing closing bracket: }" );
+                    this.errorMessage( username, "Missing closing bracket: }", indent );
                     return;
                 }
 
                 // ensure that the closing bracket appears after the opening bracket
                 if ( expressionEnd < expressionStart )
                 {
-                    this.errorMessage( username, "Missing opening bracket: {" );
+                    this.errorMessage( username, "Missing opening bracket: {", indent );
                     return;
                 }
 
                 // evaluate the expression
                 var expression = statement.substring( expressionStart + 1, expressionEnd );
-                var result = this.evalExpression( username, expression );
+                var result = this.evalExpression( username, expression, indent + 1 );
                 if ( result === null )
                 {
-                    this.errorMessage( username, "Failed to evaluate expression." );
+                    this.errorMessage( username, "Failed to evaluate expression.", indent );
                     return;
                 }
 
                 // replace the expression in the statement with the evaluation result
-                statement = statement.replace( "{" + expression + "}", result );
-                this.debugMessage( username, "After Expression Evaluation: " + statement );
+                statement = statement.replace( "{" + expression + "}", result.value );
+                this.debugMessage( username, "After Expression Evaluation: " + statement, indent );
             }
             else
             {
@@ -97,7 +97,7 @@ module.exports =
                 var expressionEnd = statement.indexOf( "}" );
                 if ( expressionEnd >= 0 )
                 {
-                    this.errorMessage( username, "Missing opening bracket: {" );
+                    this.errorMessage( username, "Missing opening bracket: {", indent );
                     return;
                 }
 
@@ -108,22 +108,199 @@ module.exports =
         this.processScriptingCommand( username, statement );
     },
 
-    evalExpression( username, expression )
+    evalExpression( username, expression, indent )
     {
-        this.debugMessage( username, "Evaluating Expression: " + expression );
+        this.debugMessage( username, "Evaluating Expression: " + expression, indent );
 
-        var result = this.externalVariableReference( username, expression );
-        if ( result === null )
+        var tokens = this.tokenize( username, expression, indent + 1 );
+        if ( tokens === null )
         {
-            this.errorMessage( username, "Unable to find variable: " + expression );
+            this.errorMessage( username, "Failed to tokenize expression.", indent );
             return null;
         }
 
-        this.debugMessage( username, "Result: " + result );
+        var result = this.evalTokens( username, tokens, indent + 1 );
+        if ( result === null )
+        {
+            this.errorMessage( username, "Failed to evaluate tokens.", indent );
+            return null;
+        }
+
+        this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
         return result;
     },
 
     // process scripting commands; return true if a command was processed, false otherwise
+    tokenize( username, expression, indent )
+    {
+        // add space to the end of the expression to make easier to handle tokens at the end of the expression
+        expression += " ";
+
+        var tokens = [];
+
+        // possible states:
+        // - 0 : start state
+        // - 1 : processing identifier
+        var state = 0;
+
+        var identifier = "";
+
+        for ( var i = 0; i < expression.length; i++ )
+        {
+            var character = expression.charAt( i );
+
+            if ( state == 0 )
+            {
+                // ignore whitespace
+                if ( character == " " ) continue;
+
+                // look for the the start of an identifier
+                if ((( character >= "a" ) && ( character <= "z" )) ||
+                    (( character >= "A" ) && ( character <= "Z" )) ||
+                    ( character == "_" ))
+                {
+                    identifier = character;
+                    state = 1;
+                    continue;
+                }
+
+                // look for plus sign
+                if ( character == "+" )
+                {
+                    tokens.push( { type: "plus" } );
+                    continue;
+                }
+
+                this.errorMessage( username, "Unrecognized Character: [" + character + "]", indent );
+                return null;
+            }
+            else if ( state == 1 )
+            {
+                // look for the the next character of the identifier
+                if ((( character >= "a" ) && ( character <= "z" )) ||
+                    (( character >= "A" ) && ( character <= "Z" )) ||
+                    (( character >= "0" ) && ( character <= "9" )) ||
+                    ( character == "_" ))
+                {
+                    identifier += character;
+                    continue;
+                }
+
+                // otherwise, assume we are done with the identifier
+                tokens.push( { type: "identifier", name: identifier } );
+                state = 0;
+                i--; // process this character again with the new state
+                continue;
+            }
+            else
+            {
+                this.errorMessage( username, "Unrecognized State: " + state, indent );
+                return null;
+            }
+        }
+
+        return tokens;
+    },
+
+    evalTokens( username, tokens, indent )
+    {
+        var tokenMessage = "Evaluating Tokens:";
+        for ( var i = 0; i < tokens.length; i++ )
+        {
+            if ( i != 0 ) tokenMessage += ",";
+            tokenMessage += " " + this.tokenToString( tokens[ i ] );
+        }
+
+        this.debugMessage( username, tokenMessage, indent );
+
+        if ( tokens.length == 0 )
+        {
+            this.errorMessage( username, "No tokens found.", indent );
+            return null;
+        }
+
+        // handle single tokens
+        if ( tokens.length == 1 )
+        {
+            if ( tokens[ 0 ].type == "identifier" )
+            {
+                var varName = tokens[ 0 ].name;
+                this.debugMessage( username, "Variable Lookup: " + varName, indent );
+
+                var result = this.externalVariableReference( username, varName );
+                if ( result === null )
+                {
+                    this.errorMessage( username, "Unable to find variable.", indent );
+                    return null;
+                }
+
+                this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
+                return result;
+            }
+            else
+            {
+                this.errorMessage( username, "Unable to evaluate.", indent );
+                return null;
+            }
+        }
+
+        // handle plus operator
+        if ( tokens[ 1 ].type == "plus" )
+        {
+            this.debugMessage( username, "Handling Plus", indent );
+            this.debugMessage( username, "Left Value:", indent );
+            var leftValue = this.evalTokens( username, tokens.slice( 0, 1 ), indent + 1 );
+            if ( leftValue === null )
+            {
+                this.errorMessage( username, "Unable to evaluate left value.", indent );
+                return null;
+            }
+
+            this.debugMessage( username, "Right Value:", indent );
+            var rightValue = this.evalTokens( username, tokens.slice( 2 ), indent + 1 );
+            if ( rightValue === null )
+            {
+                this.errorMessage( username, "Unable to evaluate right value.", indent );
+                return null;
+            }
+
+            var message = "Adding " + this.tokenToString( leftValue ) + " and " + this.tokenToString( rightValue );
+            this.debugMessage( username, message, indent );
+
+            if ( leftValue.type != rightValue.type )
+            {
+                this.errorMessage(
+                        username, "Unable to add " + leftValue.type + " and " + rightValue.type + ".", indent );
+                return null;
+            }
+
+            if (( leftValue.type != "integer" ) && ( leftValue.type != "float" ))
+            {
+                this.errorMessage( username, "Unable to add " + leftValue.type + " values.", indent );
+                return null;
+            }
+
+            var result = { type: leftValue.type, value: leftValue.value + rightValue.value };
+            this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
+            return result;
+        }
+        else
+        {
+            this.errorMessage( username, "Expected operator, but got: " + this.tokenToString( tokens[ 1 ] ), indent );
+            return null;
+        }
+    },
+
+    tokenToString( token )
+    {
+        if ( token.type === undefined   ) return undefined;
+        if ( token.type == "identifier" ) return "[identifier: " + token.name  + "]";
+        if ( token.type == "integer"    ) return "[integer: "    + token.value + "]";
+        if ( token.type == "float"      ) return "[float: "      + token.value + "]";
+        if ( token.type == "boolean"    ) return "[boolean: "    + token.value + "]";
+        return "[" + token.type + "]";
+    },
+
     processCommand( username, command )
     {
         var commandName = Util.getCommandPrefix( command );
@@ -160,7 +337,7 @@ module.exports =
 
     evalCommand( username, commandData )
     {
-        this.evalCompoundStatement( username, commandData );
+        this.evalCompoundStatement( username, commandData, 0 );
     },
 
     printCommand( username, commandData )
@@ -168,9 +345,11 @@ module.exports =
         this.userMessage( username, "print - " + commandData );
     },
 
-    errorMessage( username, message )
+    errorMessage( username, message, indent = 0 )
     {
-        this.userMessage( username, "error - " + message );
+        var padding = "";
+        for ( var i = 0; i < indent; i++ ) padding += "  ";
+        this.userMessage( username, "error - " + padding + message );
     },
 
     infoMessage( username, message )
@@ -178,9 +357,11 @@ module.exports =
         this.userMessage( username, "info - " + message );
     },
 
-    debugMessage( username, message )
+    debugMessage( username, message, indent = 0 )
     {
-        this.userMessage( username, "debug - " + message );
+        var padding = "";
+        for ( var i = 0; i < indent; i++ ) padding += "  ";
+        this.userMessage( username, "debug - " + padding + message );
     },
 
     userMessage( username, message )

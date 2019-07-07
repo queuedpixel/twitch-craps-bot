@@ -211,15 +211,16 @@ module.exports =
     // handle scripting variable references
     scriptingVariableReference( username, varName )
     {
+        var fireBetAllowed = ( this.firePointCount() == 0 ) && ( this.point == 0 );
         switch( varName )
         {
-            case "die1"           : return this.die1;
-            case "die2"           : return this.die2;
-            case "dieTotal"       : return this.dieTotal;
-            case "point"          : return this.point;
-            case "maxPayout"      : return this.getMaxPayout() / 100;
-            case "fireBetAllowed" : return ( this.firePointCount() == 0 ) && ( this.point == 0 );
-            case "balance"        : return this.getBalance( username ) / 100;
+            case "die1"           : return { type: "integer", value: this.die1                         };
+            case "die2"           : return { type: "integer", value: this.die2                         };
+            case "dieTotal"       : return { type: "integer", value: this.dieTotal                     };
+            case "point"          : return { type: "integer", value: this.point                        };
+            case "maxPayout"      : return { type: "float",   value: this.getMaxPayout() / 100         };
+            case "fireBetAllowed" : return { type: "boolean", value: fireBetAllowed                    };
+            case "balance"        : return { type: "float",   value: this.getBalance( username ) / 100 };
         }
 
         return null;
