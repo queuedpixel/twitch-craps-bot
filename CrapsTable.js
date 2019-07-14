@@ -105,8 +105,10 @@ module.exports =
     {
         this.botUsername = botUsername;
         this.resetFirePoints();
+
+        scripting.externalUserMessage             = this.userMessage.bind( this );
         scripting.externalProcessScriptingCommand = this.processScriptingCommand.bind( this );
-        scripting.externalVariableReference = this.scriptingVariableReference.bind( this );
+        scripting.externalVariableReference       = this.scriptingVariableReference.bind( this );
 
         // initialize bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))
@@ -913,13 +915,17 @@ module.exports =
             this.stopRollTimer();
             this.canDisplayLeaderboard = true;
         }
-        // otherwise: start the timer for the next roll and display the banker's available balance
+        // otherwise: start the timer for the next roll and display the max payout
         else
         {
-            // only display the banker balance if bets were won or lost
+            // only display the max payout if bets were won or lost
             if ( betResultsDisplayed ) this.displayMaxPayout();
             this.startRollTimer();
         }
+
+        // run the scripting programs and start the roll timer if the table is active after running the programs
+        scripting.runPrograms();
+        if ( this.isTableActive() ) this.startRollTimer();
     },
 
     isTableActive()

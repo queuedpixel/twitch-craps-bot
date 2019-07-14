@@ -28,6 +28,12 @@ var Util = require( "./Util.js" );
 
 module.exports =
 {
+    playerPrograms: new Map(),
+    activePlayerPrograms: new Map(),
+
+    // override this function to chat messages to users
+    externalUserMessage( username, isScripting, isError, helpNeeded, message ) {},
+
     // override this function to process scripting commands
     externalProcessScriptingCommand( username, command )
     {
@@ -38,6 +44,51 @@ module.exports =
     externalVariableReference( username, varName )
     {
         return null;
+    },
+
+    getPlayerPrograms( username )
+    {
+        if ( !this.playerPrograms.has( username )) this.playerPrograms.set( username, new Map() );
+        return this.playerPrograms.get( username );
+    },
+
+    runPrograms()
+    {
+        for ( let username of this.activePlayerPrograms.keys() )
+        {
+            var programName = this.activePlayerPrograms.get( username );
+            this.debugMessage( username, "Running Program: " + programName, 0 );
+
+            var playerPrograms = this.getPlayerPrograms( username );
+            var program = playerPrograms.get( programName );
+            this.evalProgram( username, program, 1 );
+        }
+    },
+
+    evalProgram( username, program, indent )
+    {
+        for ( var i = 0; i < program.length; i++ )
+        {
+            var condition = program[ i ].condition;
+            var action    = program[ i ].action;
+            this.debugMessage( username, "Evaluating Statement " + i + " : " + condition + " : " + action, indent );
+
+            var result = this.evalExpression( username, condition, indent + 1 );
+            if ( result === null ) continue;
+
+            if ( result.type != "boolean" )
+            {
+                this.errorMessage( username, "Expected boolean, but got: " + this.tokenToString( result ), indent + 1 );
+                continue;
+            }
+
+            if ( result.value )
+            {
+                this.debugMessage( username, "Condition evaluated to true; performing action.", indent + 1 );
+                this.evalCompoundStatement( username, action, indent + 2 );
+            }
+            else this.debugMessage( username, "Condition evaluated to false; skipping action.", indent + 1 );
+        }
     },
 
     evalCompoundStatement( username, compoundStatement, indent )
@@ -349,7 +400,8 @@ module.exports =
 
         switch( commandName )
         {
-            case "eval" : this.evalCommand( username, commandData ); return true;
+            case "eval"    : this.evalCommand(    username, commandData ); return true;
+            case "program" : this.programCommand( username, commandData ); return true;
         }
 
         return false;
@@ -372,13 +424,103 @@ module.exports =
         switch( commandName )
         {
             case "print" : this.printCommand( username, commandData ); break;
-            default : this.errorMessage( username, "Unrecognized Command: " + commandName ); break;
+            default : this.errorMessage( username, "Unrecognized Command: " + commandName );
         }
     },
 
     evalCommand( username, commandData )
     {
         this.evalCompoundStatement( username, commandData, 0 );
+    },
+
+    programCommand( username, command )
+    {
+        if ( command.length == 0 )
+        {
+            this.externalUserMessage( username, false, true, true, "you must specify a program command." );
+            return;
+        }
+
+        var commandName = Util.getCommandPrefix( command );
+        var commandData = Util.getCommandRemainder( command );
+
+        switch( commandName )
+        {
+            case "create" : this.createProgramCommand( username, commandData ); break;
+            case "add"    : this.addStatementCommand(  username, commandData ); break;
+            case "run"    : this.runProgramCommand(    username, commandData ); break;
+            default : this.externalUserMessage( username, false, true, true, "unrecognized program command." );
+        }
+    },
+
+    createProgramCommand( username, commandData )
+    {
+        if ( commandData.length == 0 )
+        {
+            this.externalUserMessage( username, false, true, true, "you must specify a program name." );
+            return;
+        }
+
+        var playerPrograms = this.getPlayerPrograms( username );
+        var programName = Util.getCommandPrefix( commandData );
+        if ( playerPrograms.has( programName ))
+        {
+            this.externalUserMessage( username, false, true, false, "program already exists." );
+            return;
+        }
+
+        playerPrograms.set( programName, [] );
+        this.externalUserMessage( username, false, false, false, "created program." );
+    },
+
+    addStatementCommand( username, commandData )
+    {
+        if ( commandData.length == 0 )
+        {
+            this.externalUserMessage( username, false, true, true, "you must specify a program name." );
+            return;
+        }
+
+        var programName = Util.getCommandPrefix( commandData );
+        var statement   = Util.getCommandRemainder( commandData );
+
+        var playerPrograms = this.getPlayerPrograms( username );
+        if ( !playerPrograms.has( programName ))
+        {
+            this.externalUserMessage( username, false, true, false, "program does not exist." );
+            return;
+        }
+
+        var statementSplits = statement.split( ":" );
+        if ( statementSplits.length != 2 )
+        {
+            this.externalUserMessage( username, false, true, true, "invalid statement syntax." );
+            return;
+        }
+
+        var program = playerPrograms.get( programName );
+        program.push( { condition: statementSplits[ 0 ].trim(), action: statementSplits[ 1 ].trim() } );
+        this.externalUserMessage( username, false, false, false, "added statement." );
+    },
+
+    runProgramCommand( username, commandData )
+    {
+        if ( commandData.length == 0 )
+        {
+            this.externalUserMessage( username, false, true, true, "you must specify a program name." );
+            return;
+        }
+
+        var playerPrograms = this.getPlayerPrograms( username );
+        var programName = Util.getCommandPrefix( commandData );
+        if ( !playerPrograms.has( programName ))
+        {
+            this.externalUserMessage( username, false, true, false, "program does not exist." );
+            return;
+        }
+
+        this.activePlayerPrograms.set( username, programName );
+        this.externalUserMessage( username, false, false, false, "running program." );
     },
 
     printCommand( username, commandData )
