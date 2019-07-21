@@ -216,13 +216,13 @@ module.exports =
         var fireBetAllowed = ( this.firePointCount() == 0 ) && ( this.point == 0 );
         switch( varName )
         {
-            case "die1"           : return { type: "integer", value: this.die1                         };
-            case "die2"           : return { type: "integer", value: this.die2                         };
-            case "dieTotal"       : return { type: "integer", value: this.dieTotal                     };
-            case "point"          : return { type: "integer", value: this.point                        };
-            case "maxPayout"      : return { type: "float",   value: this.getMaxPayout() / 100         };
+            case "die1"           : return { type: "number",  value: this.die1                         };
+            case "die2"           : return { type: "number",  value: this.die2                         };
+            case "dieTotal"       : return { type: "number",  value: this.dieTotal                     };
+            case "point"          : return { type: "number",  value: this.point                        };
+            case "maxPayout"      : return { type: "number",  value: this.getMaxPayout() / 100         };
             case "fireBetAllowed" : return { type: "boolean", value: fireBetAllowed                    };
-            case "balance"        : return { type: "float",   value: this.getBalance( username ) / 100 };
+            case "balance"        : return { type: "number",  value: this.getBalance( username ) / 100 };
         }
 
         return null;

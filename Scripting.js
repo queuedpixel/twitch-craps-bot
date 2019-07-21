@@ -46,6 +46,15 @@ module.exports =
         return null;
     },
 
+    tokenToString( token )
+    {
+        if ( token.type === undefined   ) return undefined;
+        if ( token.type == "identifier" ) return "[identifier: " + token.name  + "]";
+        if ( token.type == "number"     ) return "[number: "     + token.value + "]";
+        if ( token.type == "boolean"    ) return "[boolean: "    + token.value + "]";
+        return "[" + token.type + "]";
+    },
+
     isOperator( token )
     {
         return !Number.isNaN( this.getOperatorPrecedence( token ));
@@ -270,7 +279,7 @@ module.exports =
                 }
 
                 // otherwise, assume we are done with the integer
-                tokens.push( { type: "integer", value: parseInt( token, 10 ) } );
+                tokens.push( { type: "number", value: parseInt( token, 10 ) } );
                 state = 0;
                 i--; // process this character again with the new state
                 continue;
@@ -339,7 +348,7 @@ module.exports =
                 this.debugMessage( username, "Value: " + this.tokenToString( result ), indent );
                 return result;
             }
-            else if ( token.type == "integer" ) return token;
+            else if ( token.type == "number" ) return token;
             else
             {
                 this.errorMessage( username, "Unable to evaluate.", indent );
@@ -352,9 +361,6 @@ module.exports =
 
     evalOperator( username, tokens, indent )
     {
-        var operationType;
-        var operationFunction;
-
         // look for the lowest precedence operator
         var operatorIndex      = NaN;
         var operatorPrecedence = NaN;
@@ -381,25 +387,38 @@ module.exports =
         var operatorToken = tokens[ operatorIndex ];
         this.debugMessage( username, "Handling operator: " + this.tokenToString( operatorToken ), indent );
 
+        var operationName;
+        var operationFunction;
+        var operandType;
+        var resultType;
+
         if ( operatorToken.type == "and" )
         {
-            operationType = "And";
-            operationFunction = this.andOperation.bind( this );
+            operationName = "And";
+            operationFunction = this.andOperation;
+            operandType = "boolean";
+            resultType = "boolean";
         }
         else if ( operatorToken.type == "greaterThan" )
         {
-            operationType = "Greater Than";
-            operationFunction = this.greaterThanOperation.bind( this );
+            operationName = "Greater Than";
+            operationFunction = this.greaterThanOperation;
+            operandType = "number";
+            resultType = "boolean";
         }
         else if ( operatorToken.type == "greaterThanOrEqual" )
         {
-            operationType = "Greater Than or Equal";
-            operationFunction = this.greaterThanOrEqualOperation.bind( this );
+            operationName = "Greater Than or Equal";
+            operationFunction = this.greaterThanOrEqualOperation;
+            operandType = "number";
+            resultType = "boolean";
         }
         else if ( operatorToken.type == "plus" )
         {
-            operationType = "Plus";
-            operationFunction = this.plusOperation.bind( this );
+            operationName = "Plus";
+            operationFunction = this.plusOperation;
+            operandType = "number";
+            resultType = "number";
         }
         else
         {
@@ -415,79 +434,28 @@ module.exports =
         var rightValue = this.evalTokens( username, tokens.slice( operatorIndex + 1 ), indent + 1 );
         if ( rightValue === null ) return null;
 
-        var message = "Operation: " + operationType +
+        var message = "Operation: " + operationName +
                       ", Left: " + this.tokenToString( leftValue ) +
                       ", Right: " + this.tokenToString( rightValue );
         this.debugMessage( username, message, indent );
 
-        var result = operationFunction( username, leftValue, rightValue, indent );
-        if ( result === null ) return null;
+        if (( leftValue.type != operandType ) || ( rightValue.type != operandType ))
+        {
+            this.errorMessage( username,
+                               "Expected " + operandType + " operands, but received: " +
+                               leftValue.type + " and " + rightValue.type, indent );
+            return null;
+        }
+
+        var result = { type: resultType, value: operationFunction( leftValue, rightValue ) };
         this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
         return result;
     },
 
-    andOperation( username, leftValue, rightValue, indent )
-    {
-        if (( leftValue.type != "boolean" ) || ( rightValue.type != "boolean" ))
-        {
-            this.errorMessage( username,
-                               "Unable to perform logical and on " +
-                               leftValue.type + " and " + rightValue.type + ".", indent );
-            return null;
-        }
-
-        return { type: "boolean", value: leftValue.value && rightValue.value };
-    },
-
-    greaterThanOperation( username, leftValue, rightValue, indent )
-    {
-        if ((( leftValue.type  != "integer" ) && ( leftValue.type  != "float" )) ||
-            (( rightValue.type != "integer" ) && ( rightValue.type != "float" )))
-        {
-            this.errorMessage(
-                    username, "Unable to compare " + leftValue.type + " and " + rightValue.type + ".", indent );
-            return null;
-        }
-
-        return { type: "boolean", value: leftValue.value > rightValue.value };
-    },
-
-    greaterThanOrEqualOperation( username, leftValue, rightValue, indent )
-    {
-        if ((( leftValue.type  != "integer" ) && ( leftValue.type  != "float" )) ||
-            (( rightValue.type != "integer" ) && ( rightValue.type != "float" )))
-        {
-            this.errorMessage(
-                    username, "Unable to compare " + leftValue.type + " and " + rightValue.type + ".", indent );
-            return null;
-        }
-
-        return { type: "boolean", value: leftValue.value >= rightValue.value };
-    },
-
-    plusOperation( username, leftValue, rightValue, indent )
-    {
-        if ((( leftValue.type  != "integer" ) && ( leftValue.type  != "float" )) ||
-            (( rightValue.type != "integer" ) && ( rightValue.type != "float" )))
-        {
-            this.errorMessage(
-                    username, "Unable to add " + leftValue.type + " and " + rightValue.type + ".", indent );
-            return null;
-        }
-
-        var type = (( leftValue.type == "float" ) || ( rightValue.type == "float" )) ? "float" : "integer";
-        return { type: type, value: leftValue.value + rightValue.value };
-    },
-
-    tokenToString( token )
-    {
-        if ( token.type === undefined   ) return undefined;
-        if ( token.type == "identifier" ) return "[identifier: " + token.name  + "]";
-        if ( token.type == "integer"    ) return "[integer: "    + token.value + "]";
-        if ( token.type == "float"      ) return "[float: "      + token.value + "]";
-        if ( token.type == "boolean"    ) return "[boolean: "    + token.value + "]";
-        return "[" + token.type + "]";
-    },
+    andOperation(                leftValue, rightValue ) { return leftValue.value && rightValue.value; },
+    greaterThanOperation(        leftValue, rightValue ) { return leftValue.value >  rightValue.value; },
+    greaterThanOrEqualOperation( leftValue, rightValue ) { return leftValue.value >= rightValue.value; },
+    plusOperation(               leftValue, rightValue ) { return leftValue.value +  rightValue.value; },
 
     processCommand( username, command )
     {
