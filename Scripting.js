@@ -46,6 +46,21 @@ module.exports =
         return null;
     },
 
+    isOperator( token )
+    {
+        return !Number.isNaN( this.getOperatorPrecedence( token ));
+    },
+
+    getOperatorPrecedence( operator )
+    {
+        switch( operator.type )
+        {
+            case "greaterThan" : return 1;
+            case "plus"        : return 2;
+            default            : return NaN;
+        }
+    },
+
     getPlayerPrograms( username )
     {
         if ( !this.playerPrograms.has( username )) this.playerPrograms.set( username, new Map() );
@@ -315,12 +330,35 @@ module.exports =
 
     evalOperator( username, tokens, indent )
     {
-        this.debugMessage( username, "Handling Operator", indent );
-
         var operationType;
         var operationFunction;
 
-        var operatorToken = tokens[ 1 ];
+        // look for the lowest precedence operator
+        var operatorIndex      = NaN;
+        var operatorPrecedence = NaN;
+        for ( var i = 0; i < tokens.length; i++ )
+        {
+            var token = tokens[ i ];
+            if ( this.isOperator( token ))
+            {
+                var tokenPrecedence = this.getOperatorPrecedence( token );
+                if (( Number.isNaN( operatorPrecedence )) || ( operatorPrecedence > tokenPrecedence ))
+                {
+                    operatorIndex = i;
+                    operatorPrecedence = tokenPrecedence;
+                }
+            }
+        }
+
+        if ( Number.isNaN( operatorIndex ))
+        {
+            this.errorMessage( username, "Unable to find operator.", indent );
+            return null;
+        }
+
+        var operatorToken = tokens[ operatorIndex ];
+        this.debugMessage( username, "Handling operator: " + this.tokenToString( operatorToken ), indent );
+
         if ( operatorToken.type == "plus" )
         {
             operationType = "Plus";
@@ -333,16 +371,16 @@ module.exports =
         }
         else
         {
-            this.errorMessage( username, "Expected operator, but got: " + this.tokenToString( operatorToken ), indent );
+            this.errorMessage( username, "Unrecognized operator.", indent );
             return null;
         }
 
         this.debugMessage( username, "Left Value:", indent );
-        var leftValue = this.evalTokens( username, tokens.slice( 0, 1 ), indent + 1 );
+        var leftValue = this.evalTokens( username, tokens.slice( 0, operatorIndex ), indent + 1 );
         if ( leftValue === null ) return null;
 
         this.debugMessage( username, "Right Value:", indent );
-        var rightValue = this.evalTokens( username, tokens.slice( 2 ), indent + 1 );
+        var rightValue = this.evalTokens( username, tokens.slice( operatorIndex + 1 ), indent + 1 );
         if ( rightValue === null ) return null;
 
         var message = "Operation: " + operationType +
