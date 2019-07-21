@@ -235,6 +235,18 @@ module.exports =
                     continue;
                 }
 
+                if ( character == "(" )
+                {
+                    tokens.push( { type: "openParen" } );
+                    continue;
+                }
+
+                if ( character == ")" )
+                {
+                    tokens.push( { type: "closeParen" } );
+                    continue;
+                }
+
                 if ( character == "+" )
                 {
                     tokens.push( { type: "plus" } );
@@ -364,10 +376,34 @@ module.exports =
         // look for the lowest precedence operator
         var operatorIndex      = NaN;
         var operatorPrecedence = NaN;
+        var parenDepth         = 0;
+        var parenCount         = 0;
+
         for ( var i = 0; i < tokens.length; i++ )
         {
             var token = tokens[ i ];
-            if ( this.isOperator( token ))
+
+            if ( token.type == "openParen" )
+            {
+                parenDepth++;
+                continue;
+            }
+
+            if ( token.type == "closeParen" )
+            {
+                if ( parenDepth == 0 )
+                {
+                    this.errorMessage( username, "Missing opening parenthesis: (", indent );
+                    return null;
+                }
+
+                // count the number of top-level parenthesized expressions
+                if ( --parenDepth == 0 ) parenCount++;
+                continue;
+            }
+
+            // only look for operators outside of parenthesized expressions
+            if (( this.isOperator( token )) && ( parenDepth == 0 ))
             {
                 var tokenPrecedence = this.getOperatorPrecedence( token );
                 if (( Number.isNaN( operatorPrecedence )) || ( operatorPrecedence > tokenPrecedence ))
@@ -376,6 +412,21 @@ module.exports =
                     operatorPrecedence = tokenPrecedence;
                 }
             }
+        }
+
+        if ( parenDepth != 0 )
+        {
+            this.errorMessage( username, "Missing closing parenthesis: )", indent );
+            return null;
+        }
+
+        // strip parenthesis if the entire expression is a parenthesized expression
+        if (( tokens[ 0 ].type == "openParen" ) &&
+            ( tokens[ tokens.length - 1 ].type == "closeParen" ) &&
+            ( parenCount == 1 ))
+        {
+            this.debugMessage( username, "Stripping parenthesis.", indent );
+            return this.evalTokens( username, tokens.slice( 1, tokens.length - 1 ), indent );
         }
 
         if ( Number.isNaN( operatorIndex ))
