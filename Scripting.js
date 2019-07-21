@@ -424,6 +424,17 @@ module.exports =
             return this.evalTokens( username, tokens.slice( 1, tokens.length - 1 ), indent );
         }
 
+        // handle function calls
+        if (( tokens[ 0 ].type == "identifier" ) &&
+            ( tokens[ 1 ].type == "openParen" ) &&
+            ( tokens[ tokens.length - 1 ].type == "closeParen" ) &&
+            ( parenCount == 1 ))
+        {
+            var functionName = tokens[ 0 ].name;
+            var paramTokens = tokens.slice( 2, tokens.length - 1 );
+            return this.evalFunctionCall( username, functionName, paramTokens, indent );
+        }
+
         if ( Number.isNaN( operatorIndex ))
         {
             this.errorMessage( username, "Unable to find operator.", indent );
@@ -431,6 +442,44 @@ module.exports =
         }
 
         return this.evalOperator( username, tokens, operatorIndex, indent );
+    },
+
+    evalFunctionCall( username, functionName, paramTokens, indent )
+    {
+        this.debugMessage( username, "Calling function: " + functionName, indent );
+
+        var paramType;
+        var resultType;
+        var functionFunction;
+
+        if ( functionName == "floor" )
+        {
+            paramType = "number";
+            resultType = "number";
+            functionFunction = Math.floor;
+        }
+        else
+        {
+            this.errorMessage( username, "Unrecognized function.", indent );
+            return null;
+        }
+
+        this.debugMessage( username, "Param:", indent );
+        var param = this.evalTokens( username, paramTokens, indent + 1 );
+        if ( param === null ) return null;
+
+        this.debugMessage(
+                username, "Function call: " + functionName + "( " + this.tokenToString( param ) + " )", indent );
+
+        if ( param.type != paramType )
+        {
+            this.errorMessage( username, "Expected " + paramType + " parameter, but received: " + param.type, indent );
+            return null;
+        }
+
+        var result = { type: resultType, value: functionFunction( param.value ) };
+        this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
+        return result;
     },
 
     evalOperator( username, tokens, operatorIndex, indent )
