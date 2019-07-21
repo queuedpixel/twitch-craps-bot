@@ -368,11 +368,6 @@ module.exports =
             }
         }
 
-        return this.evalOperator( username, tokens, indent );
-    },
-
-    evalOperator( username, tokens, indent )
-    {
         // look for the lowest precedence operator
         var operatorIndex      = NaN;
         var operatorPrecedence = NaN;
@@ -435,6 +430,11 @@ module.exports =
             return null;
         }
 
+        return this.evalOperator( username, tokens, operatorIndex, indent );
+    },
+
+    evalOperator( username, tokens, operatorIndex, indent )
+    {
         var operatorToken = tokens[ operatorIndex ];
         this.debugMessage( username, "Handling operator: " + this.tokenToString( operatorToken ), indent );
 
