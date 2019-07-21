@@ -55,9 +55,10 @@ module.exports =
     {
         switch( operator.type )
         {
-            case "greaterThan"        : return 1;
-            case "greaterThanOrEqual" : return 1;
-            case "plus"               : return 2;
+            case "and"                : return 1;
+            case "greaterThan"        : return 2;
+            case "greaterThanOrEqual" : return 2;
+            case "plus"               : return 3;
             default                   : return NaN;
         }
     },
@@ -231,7 +232,7 @@ module.exports =
                     continue;
                 }
 
-                if ( character == ">" )
+                if (( character == ">" ) || ( character == "&" ))
                 {
                     token = character;
                     state = 3;
@@ -277,7 +278,7 @@ module.exports =
             else if ( state == 3 )
             {
                 // look for the second character of the operator
-                if ( character == "=" )
+                if (( character == "=" ) || ( character == "&" ))
                 {
                     token += character;
                 }
@@ -286,6 +287,7 @@ module.exports =
                 state = 0;
                 switch ( token )
                 {
+                    case "&&" : tokens.push( { type: "and"                } ); break;
                     case ">"  : tokens.push( { type: "greaterThan"        } ); break;
                     case ">=" : tokens.push( { type: "greaterThanOrEqual" } ); break;
                     default : this.errorMessage( username, "Unrecognized Operator: " + token, indent ); return null;
@@ -379,10 +381,10 @@ module.exports =
         var operatorToken = tokens[ operatorIndex ];
         this.debugMessage( username, "Handling operator: " + this.tokenToString( operatorToken ), indent );
 
-        if ( operatorToken.type == "plus" )
+        if ( operatorToken.type == "and" )
         {
-            operationType = "Plus";
-            operationFunction = this.plusOperation.bind( this );
+            operationType = "And";
+            operationFunction = this.andOperation.bind( this );
         }
         else if ( operatorToken.type == "greaterThan" )
         {
@@ -393,6 +395,11 @@ module.exports =
         {
             operationType = "Greater Than or Equal";
             operationFunction = this.greaterThanOrEqualOperation.bind( this );
+        }
+        else if ( operatorToken.type == "plus" )
+        {
+            operationType = "Plus";
+            operationFunction = this.plusOperation.bind( this );
         }
         else
         {
@@ -419,18 +426,17 @@ module.exports =
         return result;
     },
 
-    plusOperation( username, leftValue, rightValue, indent )
+    andOperation( username, leftValue, rightValue, indent )
     {
-        if ((( leftValue.type  != "integer" ) && ( leftValue.type  != "float" )) ||
-            (( rightValue.type != "integer" ) && ( rightValue.type != "float" )))
+        if (( leftValue.type != "boolean" ) || ( rightValue.type != "boolean" ))
         {
-            this.errorMessage(
-                    username, "Unable to add " + leftValue.type + " and " + rightValue.type + ".", indent );
+            this.errorMessage( username,
+                               "Unable to perform logical and on " +
+                               leftValue.type + " and " + rightValue.type + ".", indent );
             return null;
         }
 
-        var type = (( leftValue.type == "float" ) || ( rightValue.type == "float" )) ? "float" : "integer";
-        return { type: type, value: leftValue.value + rightValue.value };
+        return { type: "boolean", value: leftValue.value && rightValue.value };
     },
 
     greaterThanOperation( username, leftValue, rightValue, indent )
@@ -457,6 +463,20 @@ module.exports =
         }
 
         return { type: "boolean", value: leftValue.value >= rightValue.value };
+    },
+
+    plusOperation( username, leftValue, rightValue, indent )
+    {
+        if ((( leftValue.type  != "integer" ) && ( leftValue.type  != "float" )) ||
+            (( rightValue.type != "integer" ) && ( rightValue.type != "float" )))
+        {
+            this.errorMessage(
+                    username, "Unable to add " + leftValue.type + " and " + rightValue.type + ".", indent );
+            return null;
+        }
+
+        var type = (( leftValue.type == "float" ) || ( rightValue.type == "float" )) ? "float" : "integer";
+        return { type: type, value: leftValue.value + rightValue.value };
     },
 
     tokenToString( token )
