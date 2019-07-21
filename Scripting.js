@@ -55,9 +55,10 @@ module.exports =
     {
         switch( operator.type )
         {
-            case "greaterThan" : return 1;
-            case "plus"        : return 2;
-            default            : return NaN;
+            case "greaterThan"        : return 1;
+            case "greaterThanOrEqual" : return 1;
+            case "plus"               : return 2;
+            default                   : return NaN;
         }
     },
 
@@ -192,6 +193,7 @@ module.exports =
         // - 0 : start state
         // - 1 : processing identifier
         // - 2 : processing literal integer
+        // - 3 : processing operator
         var state = 0;
 
         var token = "";
@@ -231,7 +233,8 @@ module.exports =
 
                 if ( character == ">" )
                 {
-                    tokens.push( { type: "greaterThan" } );
+                    token = character;
+                    state = 3;
                     continue;
                 }
 
@@ -270,6 +273,23 @@ module.exports =
                 state = 0;
                 i--; // process this character again with the new state
                 continue;
+            }
+            else if ( state == 3 )
+            {
+                // look for the second character of the operator
+                if ( character == "=" )
+                {
+                    token += character;
+                }
+                else i--; // process this character again, but not as the second character of an operator
+
+                state = 0;
+                switch ( token )
+                {
+                    case ">"  : tokens.push( { type: "greaterThan"        } ); break;
+                    case ">=" : tokens.push( { type: "greaterThanOrEqual" } ); break;
+                    default : this.errorMessage( username, "Unrecognized Operator: " + token, indent ); return null;
+                }
             }
             else
             {
@@ -369,6 +389,11 @@ module.exports =
             operationType = "Greater Than";
             operationFunction = this.greaterThanOperation.bind( this );
         }
+        else if ( operatorToken.type == "greaterThanOrEqual" )
+        {
+            operationType = "Greater Than or Equal";
+            operationFunction = this.greaterThanOrEqualOperation.bind( this );
+        }
         else
         {
             this.errorMessage( username, "Unrecognized operator.", indent );
@@ -419,6 +444,19 @@ module.exports =
         }
 
         return { type: "boolean", value: leftValue.value > rightValue.value };
+    },
+
+    greaterThanOrEqualOperation( username, leftValue, rightValue, indent )
+    {
+        if ((( leftValue.type  != "integer" ) && ( leftValue.type  != "float" )) ||
+            (( rightValue.type != "integer" ) && ( rightValue.type != "float" )))
+        {
+            this.errorMessage(
+                    username, "Unable to compare " + leftValue.type + " and " + rightValue.type + ".", indent );
+            return null;
+        }
+
+        return { type: "boolean", value: leftValue.value >= rightValue.value };
     },
 
     tokenToString( token )
