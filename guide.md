@@ -28,6 +28,7 @@ Players cannot bet while they are the banker.
 
 * `!craps help` - Show a link to this guide.
 * `!craps balance` - Show your current balance.
+* `!craps banker-balance` - Show the current banker balance.
 * `!craps banker` - Serve as the banker.
 * `!craps banker-stop` - Stop serving as the banker.
 * `!craps bets` - Show your current bets.

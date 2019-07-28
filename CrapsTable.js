@@ -62,6 +62,7 @@ module.exports =
     removeBanker: false,
     commandCooldownHelp: 0,
     commandCooldownBalance: [],
+    commandCooldownBankerBalance: [],
     commandCooldownBanker: [],
     commandCooldownBankerStop: [],
     commandCooldownBets: [],
@@ -216,13 +217,14 @@ module.exports =
         var fireBetAllowed = ( this.firePointCount() == 0 ) && ( this.point == 0 );
         switch( varName )
         {
+            case "fireBetAllowed" : return { type: "boolean", value: fireBetAllowed                    };
             case "die1"           : return { type: "number",  value: this.die1                         };
             case "die2"           : return { type: "number",  value: this.die2                         };
             case "dieTotal"       : return { type: "number",  value: this.dieTotal                     };
             case "point"          : return { type: "number",  value: this.point                        };
-            case "maxPayout"      : return { type: "number",  value: this.getMaxPayout() / 100         };
-            case "fireBetAllowed" : return { type: "boolean", value: fireBetAllowed                    };
+            case "maxPayout"      : return { type: "number",  value: this.getMaxPayout()         / 100 };
             case "balance"        : return { type: "number",  value: this.getBalance( username ) / 100 };
+            case "bankerBalance"  : return { type: "number",  value: this.getBankerBalance()     / 100 };
         }
 
         return null;
@@ -780,10 +782,11 @@ module.exports =
     processRoll( die1, die2 )
     {
         // allow all players to use once-per-roll commands again
-        this.commandCooldownBalance    = [];
-        this.commandCooldownBanker     = [];
-        this.commandCooldownBankerStop = [];
-        this.commandCooldownBets       = [];
+        this.commandCooldownBalance       = [];
+        this.commandCooldownBankerBalance = [];
+        this.commandCooldownBanker        = [];
+        this.commandCooldownBankerStop    = [];
+        this.commandCooldownBets          = [];
 
         // print out the roll
         var dieTotal = die1 + die2;
@@ -1047,14 +1050,15 @@ module.exports =
 
         switch( commandName )
         {
-            case "force"       : this.forceCommand(      username, commandData        ); break;
-            case "roll"        : this.rollCommand(       username, commandData        ); break;
-            case "help"        : this.helpCommand(       username                     ); break;
-            case "balance"     : this.balanceCommand(    username                     ); break;
-            case "banker"      : this.bankerCommand(     username                     ); break;
-            case "banker-stop" : this.bankerStopCommand( username                     ); break;
-            case "bets"        : this.betsCommand(       username                     ); break;
-            case "bet"         : this.betCommand(        username, commandData, false ); break;
+            case "force"          : this.forceCommand(         username, commandData        ); break;
+            case "roll"           : this.rollCommand(          username, commandData        ); break;
+            case "help"           : this.helpCommand(          username                     ); break;
+            case "balance"        : this.balanceCommand(       username                     ); break;
+            case "banker-balance" : this.bankerBalanceCommand( username                     ); break;
+            case "banker"         : this.bankerCommand(        username                     ); break;
+            case "banker-stop"    : this.bankerStopCommand(    username                     ); break;
+            case "bets"           : this.betsCommand(          username                     ); break;
+            case "bet"            : this.betCommand(           username, commandData, false ); break;
             default : this.userMessage( username, false, true, true, "uncrecognized command." );
         }
     },
@@ -1167,6 +1171,23 @@ module.exports =
                 this.banker == username ? this.getAvailableBankerBalance() : this.getAvailableBalance( username );
         var message = "balance: " + this.formatCurrency( balance );
         if ( balance != availableBalance ) message += "; available balance: " + this.formatCurrency( availableBalance );
+        this.userMessage( username, false, false, false, message );
+    },
+
+    bankerBalanceCommand( username )
+    {
+        // skip if the player has already run this command since the last die roll
+        if ( this.commandCooldown( username, this.commandCooldownBankerBalance )) return;
+
+        var balance = this.getBankerBalance();
+        var availableBalance = this.getAvailableBankerBalance();
+
+        var message = "banker balance: " + this.formatCurrency( balance );
+        if ( balance != availableBalance )
+        {
+            message += "; available banker balance: " + this.formatCurrency( availableBalance );
+        }
+
         this.userMessage( username, false, false, false, message );
     },
 
