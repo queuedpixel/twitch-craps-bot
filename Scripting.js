@@ -71,7 +71,8 @@ module.exports =
             case "lessThanOrEqual"    : return 3;
             case "greaterThan"        : return 3;
             case "greaterThanOrEqual" : return 3;
-            case "plus"               : return 4;
+            case "add"                : return 4;
+            case "subtract"           : return 4;
             default                   : return NaN;
         }
     },
@@ -253,7 +254,13 @@ module.exports =
 
                 if ( character == "+" )
                 {
-                    tokens.push( { type: "plus" } );
+                    tokens.push( { type: "add" } );
+                    continue;
+                }
+
+                if ( character == "-" )
+                {
+                    tokens.push( { type: "subtract" } );
                     continue;
                 }
 
@@ -413,7 +420,7 @@ module.exports =
             if (( this.isOperator( token )) && ( parenDepth == 0 ))
             {
                 var tokenPrecedence = this.getOperatorPrecedence( token );
-                if (( Number.isNaN( operatorPrecedence )) || ( operatorPrecedence > tokenPrecedence ))
+                if (( Number.isNaN( operatorPrecedence )) || ( operatorPrecedence >= tokenPrecedence ))
                 {
                     operatorIndex = i;
                     operatorPrecedence = tokenPrecedence;
@@ -553,10 +560,17 @@ module.exports =
             operandType = "number";
             resultType = "boolean";
         }
-        else if ( operatorToken.type == "plus" )
+        else if ( operatorToken.type == "add" )
         {
-            operationName = "Plus";
-            operationFunction = this.plusOperation;
+            operationName = "Add";
+            operationFunction = this.addOperation;
+            operandType = "number";
+            resultType = "number";
+        }
+        else if ( operatorToken.type == "subtract" )
+        {
+            operationName = "Subtract";
+            operationFunction = this.subtractOperation;
             operandType = "number";
             resultType = "number";
         }
@@ -600,7 +614,8 @@ module.exports =
     lessThanOrEqualOperation(    leftValue, rightValue ) { return leftValue <=  rightValue; },
     greaterThanOperation(        leftValue, rightValue ) { return leftValue >   rightValue; },
     greaterThanOrEqualOperation( leftValue, rightValue ) { return leftValue >=  rightValue; },
-    plusOperation(               leftValue, rightValue ) { return leftValue +   rightValue; },
+    addOperation(                leftValue, rightValue ) { return leftValue +   rightValue; },
+    subtractOperation(           leftValue, rightValue ) { return leftValue -   rightValue; },
 
     processCommand( username, command )
     {
