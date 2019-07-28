@@ -66,6 +66,7 @@ module.exports =
         {
             case "and"                : return 1;
             case "equal"              : return 2;
+            case "notEqual"           : return 2;
             case "lessThan"           : return 3;
             case "lessThanOrEqual"    : return 3;
             case "greaterThan"        : return 3;
@@ -256,7 +257,11 @@ module.exports =
                     continue;
                 }
 
-                if (( character == "&" ) || ( character == "=" ) || ( character == "<" ) || ( character == ">" ))
+                if (( character == "&" ) ||
+                    ( character == "=" ) ||
+                    ( character == "!" ) ||
+                    ( character == "<" ) ||
+                    ( character == ">" ))
                 {
                     token = character;
                     state = 3;
@@ -313,6 +318,7 @@ module.exports =
                 {
                     case "&&" : tokens.push( { type: "and"                } ); break;
                     case "==" : tokens.push( { type: "equal"              } ); break;
+                    case "!=" : tokens.push( { type: "notEqual"           } ); break;
                     case "<"  : tokens.push( { type: "lessThan"           } ); break;
                     case "<=" : tokens.push( { type: "lessThanOrEqual"    } ); break;
                     case ">"  : tokens.push( { type: "greaterThan"        } ); break;
@@ -512,6 +518,13 @@ module.exports =
             operandType = undefined;
             resultType = "boolean";
         }
+        else if ( operatorToken.type == "notEqual" )
+        {
+            operationName = "Not Equal";
+            operationFunction = this.notEqualOperation;
+            operandType = undefined;
+            resultType = "boolean";
+        }
         else if ( operatorToken.type == "lessThan" )
         {
             operationName = "Less Than";
@@ -582,6 +595,7 @@ module.exports =
 
     andOperation(                leftValue, rightValue ) { return leftValue &&  rightValue; },
     equalOperation(              leftValue, rightValue ) { return leftValue === rightValue; },
+    notEqualOperation(           leftValue, rightValue ) { return leftValue !== rightValue; },
     lessThanOperation(           leftValue, rightValue ) { return leftValue <   rightValue; },
     lessThanOrEqualOperation(    leftValue, rightValue ) { return leftValue <=  rightValue; },
     greaterThanOperation(        leftValue, rightValue ) { return leftValue >   rightValue; },
