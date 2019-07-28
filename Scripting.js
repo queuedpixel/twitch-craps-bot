@@ -74,6 +74,7 @@ module.exports =
             case "add"                : return 4;
             case "subtract"           : return 4;
             case "multiply"           : return 5;
+            case "divide"             : return 5;
             default                   : return NaN;
         }
     },
@@ -268,6 +269,12 @@ module.exports =
                 if ( character == "*" )
                 {
                     tokens.push( { type: "multiply" } );
+                    continue;
+                }
+
+                if ( character == "/" )
+                {
+                    tokens.push( { type: "divide" } );
                     continue;
                 }
 
@@ -588,6 +595,13 @@ module.exports =
             operandType = "number";
             resultType = "number";
         }
+        else if ( operatorToken.type == "divide" )
+        {
+            operationName = "Divide";
+            operationFunction = this.divideOperation;
+            operandType = "number";
+            resultType = "number";
+        }
         else
         {
             this.errorMessage( username, "Unrecognized operator.", indent );
@@ -631,6 +645,7 @@ module.exports =
     addOperation(                leftValue, rightValue ) { return leftValue +   rightValue; },
     subtractOperation(           leftValue, rightValue ) { return leftValue -   rightValue; },
     multiplyOperation(           leftValue, rightValue ) { return leftValue *   rightValue; },
+    divideOperation(             leftValue, rightValue ) { return leftValue /   rightValue; },
 
     processCommand( username, command )
     {
