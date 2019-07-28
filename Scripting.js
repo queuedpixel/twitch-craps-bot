@@ -66,6 +66,7 @@ module.exports =
         {
             case "and"                : return 1;
             case "lessThan"           : return 2;
+            case "lessThanOrEqual"    : return 2;
             case "greaterThan"        : return 2;
             case "greaterThanOrEqual" : return 2;
             case "plus"               : return 3;
@@ -311,6 +312,7 @@ module.exports =
                 {
                     case "&&" : tokens.push( { type: "and"                } ); break;
                     case "<"  : tokens.push( { type: "lessThan"           } ); break;
+                    case "<=" : tokens.push( { type: "lessThanOrEqual"    } ); break;
                     case ">"  : tokens.push( { type: "greaterThan"        } ); break;
                     case ">=" : tokens.push( { type: "greaterThanOrEqual" } ); break;
                     default : this.errorMessage( username, "Unrecognized Operator: " + token, indent ); return null;
@@ -508,6 +510,13 @@ module.exports =
             operandType = "number";
             resultType = "boolean";
         }
+        else if ( operatorToken.type == "lessThanOrEqual" )
+        {
+            operationName = "Less Than or Equal";
+            operationFunction = this.lessThanOrEqualOperation;
+            operandType = "number";
+            resultType = "boolean";
+        }
         else if ( operatorToken.type == "greaterThan" )
         {
             operationName = "Greater Than";
@@ -563,6 +572,7 @@ module.exports =
 
     andOperation(                leftValue, rightValue ) { return leftValue.value && rightValue.value; },
     lessThanOperation(           leftValue, rightValue ) { return leftValue.value <  rightValue.value; },
+    lessThanOrEqualOperation(    leftValue, rightValue ) { return leftValue.value <= rightValue.value; },
     greaterThanOperation(        leftValue, rightValue ) { return leftValue.value >  rightValue.value; },
     greaterThanOrEqualOperation( leftValue, rightValue ) { return leftValue.value >= rightValue.value; },
     plusOperation(               leftValue, rightValue ) { return leftValue.value +  rightValue.value; },
