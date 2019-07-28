@@ -65,11 +65,12 @@ module.exports =
         switch( operator.type )
         {
             case "and"                : return 1;
-            case "lessThan"           : return 2;
-            case "lessThanOrEqual"    : return 2;
-            case "greaterThan"        : return 2;
-            case "greaterThanOrEqual" : return 2;
-            case "plus"               : return 3;
+            case "equal"              : return 2;
+            case "lessThan"           : return 3;
+            case "lessThanOrEqual"    : return 3;
+            case "greaterThan"        : return 3;
+            case "greaterThanOrEqual" : return 3;
+            case "plus"               : return 4;
             default                   : return NaN;
         }
     },
@@ -255,7 +256,7 @@ module.exports =
                     continue;
                 }
 
-                if (( character == "<" ) || ( character == ">" ) || ( character == "&" ))
+                if (( character == "&" ) || ( character == "=" ) || ( character == "<" ) || ( character == ">" ))
                 {
                     token = character;
                     state = 3;
@@ -311,6 +312,7 @@ module.exports =
                 switch ( token )
                 {
                     case "&&" : tokens.push( { type: "and"                } ); break;
+                    case "==" : tokens.push( { type: "equal"              } ); break;
                     case "<"  : tokens.push( { type: "lessThan"           } ); break;
                     case "<=" : tokens.push( { type: "lessThanOrEqual"    } ); break;
                     case ">"  : tokens.push( { type: "greaterThan"        } ); break;
@@ -503,6 +505,13 @@ module.exports =
             operandType = "boolean";
             resultType = "boolean";
         }
+        else if ( operatorToken.type == "equal" )
+        {
+            operationName = "Equal";
+            operationFunction = this.equalOperation;
+            operandType = undefined;
+            resultType = "boolean";
+        }
         else if ( operatorToken.type == "lessThan" )
         {
             operationName = "Less Than";
@@ -557,7 +566,8 @@ module.exports =
                       ", Right: " + this.tokenToString( rightValue );
         this.debugMessage( username, message, indent );
 
-        if (( leftValue.type != operandType ) || ( rightValue.type != operandType ))
+        if (( operandType !== undefined ) &&
+            (( leftValue.type != operandType ) || ( rightValue.type != operandType )))
         {
             this.errorMessage( username,
                                "Expected " + operandType + " operands, but received: " +
@@ -565,17 +575,18 @@ module.exports =
             return null;
         }
 
-        var result = { type: resultType, value: operationFunction( leftValue, rightValue ) };
+        var result = { type: resultType, value: operationFunction( leftValue.value, rightValue.value ) };
         this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
         return result;
     },
 
-    andOperation(                leftValue, rightValue ) { return leftValue.value && rightValue.value; },
-    lessThanOperation(           leftValue, rightValue ) { return leftValue.value <  rightValue.value; },
-    lessThanOrEqualOperation(    leftValue, rightValue ) { return leftValue.value <= rightValue.value; },
-    greaterThanOperation(        leftValue, rightValue ) { return leftValue.value >  rightValue.value; },
-    greaterThanOrEqualOperation( leftValue, rightValue ) { return leftValue.value >= rightValue.value; },
-    plusOperation(               leftValue, rightValue ) { return leftValue.value +  rightValue.value; },
+    andOperation(                leftValue, rightValue ) { return leftValue &&  rightValue; },
+    equalOperation(              leftValue, rightValue ) { return leftValue === rightValue; },
+    lessThanOperation(           leftValue, rightValue ) { return leftValue <   rightValue; },
+    lessThanOrEqualOperation(    leftValue, rightValue ) { return leftValue <=  rightValue; },
+    greaterThanOperation(        leftValue, rightValue ) { return leftValue >   rightValue; },
+    greaterThanOrEqualOperation( leftValue, rightValue ) { return leftValue >=  rightValue; },
+    plusOperation(               leftValue, rightValue ) { return leftValue +   rightValue; },
 
     processCommand( username, command )
     {
