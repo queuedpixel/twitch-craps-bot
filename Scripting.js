@@ -75,6 +75,7 @@ module.exports =
             case "subtract"           : return 4;
             case "multiply"           : return 5;
             case "divide"             : return 5;
+            case "remainder"          : return 5;
             default                   : return NaN;
         }
     },
@@ -275,6 +276,12 @@ module.exports =
                 if ( character == "/" )
                 {
                     tokens.push( { type: "divide" } );
+                    continue;
+                }
+
+                if ( character == "%" )
+                {
+                    tokens.push( { type: "remainder" } );
                     continue;
                 }
 
@@ -602,6 +609,13 @@ module.exports =
             operandType = "number";
             resultType = "number";
         }
+        else if ( operatorToken.type == "remainder" )
+        {
+            operationName = "Remainder";
+            operationFunction = this.remainderOperation;
+            operandType = "number";
+            resultType = "number";
+        }
         else
         {
             this.errorMessage( username, "Unrecognized operator.", indent );
@@ -646,6 +660,7 @@ module.exports =
     subtractOperation(           leftValue, rightValue ) { return leftValue -   rightValue; },
     multiplyOperation(           leftValue, rightValue ) { return leftValue *   rightValue; },
     divideOperation(             leftValue, rightValue ) { return leftValue /   rightValue; },
+    remainderOperation(          leftValue, rightValue ) { return leftValue %   rightValue; },
 
     processCommand( username, command )
     {
