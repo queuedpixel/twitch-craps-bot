@@ -64,18 +64,19 @@ module.exports =
     {
         switch( operator.type )
         {
-            case "and"                : return 1;
-            case "equal"              : return 2;
-            case "notEqual"           : return 2;
-            case "lessThan"           : return 3;
-            case "lessThanOrEqual"    : return 3;
-            case "greaterThan"        : return 3;
-            case "greaterThanOrEqual" : return 3;
-            case "add"                : return 4;
-            case "subtract"           : return 4;
-            case "multiply"           : return 5;
-            case "divide"             : return 5;
-            case "remainder"          : return 5;
+            case "or"                 : return 1;
+            case "and"                : return 2;
+            case "equal"              : return 3;
+            case "notEqual"           : return 3;
+            case "lessThan"           : return 4;
+            case "lessThanOrEqual"    : return 4;
+            case "greaterThan"        : return 4;
+            case "greaterThanOrEqual" : return 4;
+            case "add"                : return 5;
+            case "subtract"           : return 5;
+            case "multiply"           : return 6;
+            case "divide"             : return 6;
+            case "remainder"          : return 6;
             default                   : return NaN;
         }
     },
@@ -285,7 +286,8 @@ module.exports =
                     continue;
                 }
 
-                if (( character == "&" ) ||
+                if (( character == "|" ) ||
+                    ( character == "&" ) ||
                     ( character == "=" ) ||
                     ( character == "!" ) ||
                     ( character == "<" ) ||
@@ -335,7 +337,7 @@ module.exports =
             else if ( state == 3 )
             {
                 // look for the second character of the operator
-                if (( character == "=" ) || ( character == "&" ))
+                if (( character == "|" ) || ( character == "&" ) || ( character == "=" ))
                 {
                     token += character;
                 }
@@ -344,6 +346,7 @@ module.exports =
                 state = 0;
                 switch ( token )
                 {
+                    case "||" : tokens.push( { type: "or"                 } ); break;
                     case "&&" : tokens.push( { type: "and"                } ); break;
                     case "==" : tokens.push( { type: "equal"              } ); break;
                     case "!=" : tokens.push( { type: "notEqual"           } ); break;
@@ -532,7 +535,14 @@ module.exports =
         var operandType;
         var resultType;
 
-        if ( operatorToken.type == "and" )
+        if ( operatorToken.type == "or" )
+        {
+            operationName = "Or";
+            operationFunction = this.orOperation;
+            operandType = "boolean";
+            resultType = "boolean";
+        }
+        else if ( operatorToken.type == "and" )
         {
             operationName = "And";
             operationFunction = this.andOperation;
@@ -649,6 +659,7 @@ module.exports =
         return result;
     },
 
+    orOperation(                 leftValue, rightValue ) { return leftValue ||  rightValue; },
     andOperation(                leftValue, rightValue ) { return leftValue &&  rightValue; },
     equalOperation(              leftValue, rightValue ) { return leftValue === rightValue; },
     notEqualOperation(           leftValue, rightValue ) { return leftValue !== rightValue; },
