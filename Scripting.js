@@ -28,8 +28,10 @@ var Util = require( "./Util.js" );
 
 module.exports =
 {
+    maxCallStack: 1000,
     playerPrograms: new Map(),
     activePlayerPrograms: new Map(),
+    playerFunctions: new Map(),
 
     // override this function to chat messages to users
     externalUserMessage( username, isScripting, isError, helpNeeded, message ) {},
@@ -53,6 +55,15 @@ module.exports =
         if ( token.type == "number"     ) return "[number: "     + token.value + "]";
         if ( token.type == "boolean"    ) return "[boolean: "    + token.value + "]";
         return "[" + token.type + "]";
+    },
+
+    getFunctionDetails( functionName )
+    {
+        switch( functionName )
+        {
+            case "floor" : return { paramTypes: [ "number" ], resultType: "number", functionFunction: Math.floor };
+            default      : return null;
+        }
     },
 
     isOperator( token )
@@ -87,6 +98,12 @@ module.exports =
         return this.playerPrograms.get( username );
     },
 
+    getPlayerFunctions( username )
+    {
+        if ( !this.playerFunctions.has( username )) this.playerFunctions.set( username, new Map() );
+        return this.playerFunctions.get( username );
+    },
+
     runPrograms()
     {
         for ( let username of this.activePlayerPrograms.keys() )
@@ -108,7 +125,8 @@ module.exports =
             var action    = program[ i ].action;
             this.debugMessage( username, "Evaluating Statement " + i + " : " + condition + " : " + action, indent );
 
-            var result = this.evalExpression( username, condition, indent + 1 );
+            var context = { callStack: 0, params: new Map() };
+            var result = this.evalExpression( username, context, condition, indent + 1 );
             if ( result === null ) continue;
 
             if ( result.type != "boolean" )
@@ -165,8 +183,9 @@ module.exports =
                 }
 
                 // evaluate the expression
+                var context = { callStack: 0, params: new Map() };
                 var expression = statement.substring( expressionStart + 1, expressionEnd );
-                var result = this.evalExpression( username, expression, indent + 1 );
+                var result = this.evalExpression( username, context, expression, indent + 1 );
                 if ( result === null ) return;
 
                 // replace the expression in the statement with the evaluation result
@@ -190,14 +209,15 @@ module.exports =
         this.processScriptingCommand( username, statement );
     },
 
-    evalExpression( username, expression, indent )
+    evalExpression( username, context, expression, indent )
     {
         this.debugMessage( username, "Evaluating Expression: {" + expression + "}", indent );
+        this.debugMessage( username, "Call Stack: " + context.callStack, indent );
 
         var tokens = this.tokenize( username, expression, indent + 1 );
         if ( tokens === null ) return null;
 
-        return this.evalTokens( username, tokens, indent + 1 );
+        return this.evalTokens( username, context, tokens, indent + 1 );
     },
 
     // process scripting commands; return true if a command was processed, false otherwise
@@ -247,6 +267,12 @@ module.exports =
                 if ( character == "(" )
                 {
                     tokens.push( { type: "openParen" } );
+                    continue;
+                }
+
+                if ( character == "," )
+                {
+                    tokens.push( { type: "comma" } );
                     continue;
                 }
 
@@ -367,7 +393,7 @@ module.exports =
         return tokens;
     },
 
-    evalTokens( username, tokens, indent )
+    evalTokens( username, context, tokens, indent )
     {
         var tokenMessage = "Evaluating Tokens: ";
         for ( var i = 0; i < tokens.length; i++ )
@@ -390,13 +416,15 @@ module.exports =
             var token = tokens[ 0 ];
             if ( token.type == "identifier" )
             {
-                var varName = token.name;
-                this.debugMessage( username, "Variable: " + varName, indent );
+                var identifier = token.name;
+                this.debugMessage( username, "Identifer: " + identifier, indent );
 
-                var result = this.externalVariableReference( username, varName );
+                var result = context.params.has( identifier ) ?
+                             context.params.get( identifier ) :
+                             this.externalVariableReference( username, identifier );
                 if ( result === null )
                 {
-                    this.errorMessage( username, "Unable to find variable.", indent );
+                    this.errorMessage( username, "Unable to find identifier.", indent );
                     return null;
                 }
 
@@ -464,7 +492,7 @@ module.exports =
             ( parenCount == 1 ))
         {
             this.debugMessage( username, "Stripping parenthesis.", indent );
-            return this.evalTokens( username, tokens.slice( 1, tokens.length - 1 ), indent );
+            return this.evalTokens( username, context, tokens.slice( 1, tokens.length - 1 ), indent );
         }
 
         // handle function calls
@@ -475,7 +503,7 @@ module.exports =
         {
             var functionName = tokens[ 0 ].name;
             var paramTokens = tokens.slice( 2, tokens.length - 1 );
-            return this.evalFunctionCall( username, functionName, paramTokens, indent );
+            return this.evalFunctionCall( username, context, functionName, paramTokens, indent );
         }
 
         if ( Number.isNaN( operatorIndex ))
@@ -484,48 +512,138 @@ module.exports =
             return null;
         }
 
-        return this.evalOperator( username, tokens, operatorIndex, indent );
+        return this.evalOperator( username, context, tokens, operatorIndex, indent );
     },
 
-    evalFunctionCall( username, functionName, paramTokens, indent )
+    evalFunctionCall( username, context, functionName, paramTokens, indent )
     {
         this.debugMessage( username, "Calling function: " + functionName, indent );
 
-        var paramType;
-        var resultType;
-        var functionFunction;
-
-        if ( functionName == "floor" )
+        var functionDetails = this.getFunctionDetails( functionName );
+        if ( functionDetails === null )
         {
-            paramType = "number";
-            resultType = "number";
-            functionFunction = Math.floor;
+            var playerFunctions = this.getPlayerFunctions( username );
+            if ( !playerFunctions.has( functionName ))
+            {
+                this.errorMessage( username, "Unrecognized function.", indent );
+                return null;
+            }
+        }
+
+        // create array of parameter tokens seperated by commas
+        var splitParamTokens = [];
+        if ( paramTokens.length > 0 )
+        {
+            var lastSplit = 0;
+            var parenDepth = 0;
+            for ( var i = 0; i < paramTokens.length; i++ )
+            {
+                var token = paramTokens[ i ];
+
+                // track the depth of paranthesized expressions
+                // ignore error handling since earlier logic should already have handled it
+                if ( token.type == "openParen" ) parenDepth++;
+                if ( token.type == "closeParen" ) parenDepth--;
+
+                // find commas outside of paranthesized expressions
+                if (( token.type == "comma" ) && ( parenDepth == 0 ))
+                {
+                    splitParamTokens.push( paramTokens.slice( lastSplit, i ));
+                    lastSplit = i + 1;
+                }
+            }
+
+            splitParamTokens.push( paramTokens.slice( lastSplit, paramTokens.length ));
+        }
+
+        // evaluate parameters
+        var params = [];
+        for ( var i = 0; i < splitParamTokens.length; i++ )
+        {
+            this.debugMessage( username, "Evaluating Parameter " + i + ":", indent );
+            var param = this.evalTokens( username, context, splitParamTokens[ i ], indent + 1 );
+            if ( param === null ) return null;
+            params.push( param );
+        }
+
+        var message = "Function call: " + functionName + "(";
+        for ( var i = 0; i < params.length; i++ )
+        {
+            if ( i > 0 ) message += ",";
+            message += " " + this.tokenToString( params[ i ] );
+        }
+        if ( params.length > 0 ) message += " ";
+        message += ")";
+        this.debugMessage( username, message, indent );
+
+        if ( functionDetails !== null )
+        {
+            // handle system-defined functions
+            if ( functionDetails.paramTypes.length != params.length )
+            {
+                this.errorMessage( username,
+                                   "Expected " + functionDetails.paramTypes.length +
+                                   " parameter" + ( functionDetails.paramTypes.length == 1 ? "" : "s" ) +
+                                   ", but received " + params.length +
+                                   " parameter" + ( params.length == 1 ? "" : "s" ) + ".",
+                                   indent );
+                return null;
+            }
+
+            for ( var i = 0; i < functionDetails.paramTypes.length; i++ )
+            {
+                if ( functionDetails.paramTypes[ i ] != params[ i ].type )
+                {
+                    this.errorMessage( username,
+                                       "Expected " + functionDetails.paramTypes[ i ] +
+                                       " for parameter " + i + ", but received: " + params[ i ].type,
+                                       indent );
+                    return null;
+                }
+            }
+
+            // convert parameters into values
+            var paramValues = [];
+            for ( var i = 0; i < params.length; i++ ) paramValues.push( params[ i ].value );
+
+            // call the function
+            var result = { type: functionDetails.resultType, value: functionDetails.functionFunction( ...paramValues ) };
+            this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
+            return result;
         }
         else
         {
-            this.errorMessage( username, "Unrecognized function.", indent );
-            return null;
+            // handle player-defined functions
+            if ( context.callStack >= this.maxCallStack )
+            {
+                this.errorMessage( username, "Max call stack of " + this.maxCallStack + " exceeded.", indent );
+                return null;
+            }
+
+            var playerFunction = playerFunctions.get( functionName );
+            if ( playerFunction.params.length != params.length )
+            {
+                this.errorMessage( username,
+                                   "Expected " + playerFunction.params.length +
+                                   " parameter" + ( playerFunction.params.length == 1 ? "" : "s" ) +
+                                   ", but received " + params.length +
+                                   " parameter" + ( params.length == 1 ? "" : "s" ) + ".",
+                                   indent );
+                return null;
+            }
+
+            var paramsMap = new Map();
+            for ( var i = 0; i < playerFunction.params.length; i++ )
+            {
+                paramsMap.set( playerFunction.params[ i ], params[ i ] );
+            }
+
+            var newContext = { callStack: context.callStack + 1, params: paramsMap };
+            return this.evalExpression( username, newContext, playerFunction.expression, indent + 1 );
         }
-
-        this.debugMessage( username, "Param:", indent );
-        var param = this.evalTokens( username, paramTokens, indent + 1 );
-        if ( param === null ) return null;
-
-        this.debugMessage(
-                username, "Function call: " + functionName + "( " + this.tokenToString( param ) + " )", indent );
-
-        if ( param.type != paramType )
-        {
-            this.errorMessage( username, "Expected " + paramType + " parameter, but received: " + param.type, indent );
-            return null;
-        }
-
-        var result = { type: resultType, value: functionFunction( param.value ) };
-        this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
-        return result;
     },
 
-    evalOperator( username, tokens, operatorIndex, indent )
+    evalOperator( username, context, tokens, operatorIndex, indent )
     {
         var operatorToken = tokens[ operatorIndex ];
         this.debugMessage( username, "Handling operator: " + this.tokenToString( operatorToken ), indent );
@@ -633,11 +751,11 @@ module.exports =
         }
 
         this.debugMessage( username, "Left Value:", indent );
-        var leftValue = this.evalTokens( username, tokens.slice( 0, operatorIndex ), indent + 1 );
+        var leftValue = this.evalTokens( username, context, tokens.slice( 0, operatorIndex ), indent + 1 );
         if ( leftValue === null ) return null;
 
         this.debugMessage( username, "Right Value:", indent );
-        var rightValue = this.evalTokens( username, tokens.slice( operatorIndex + 1 ), indent + 1 );
+        var rightValue = this.evalTokens( username, context, tokens.slice( operatorIndex + 1 ), indent + 1 );
         if ( rightValue === null ) return null;
 
         var message = "Operation: " + operationName +
@@ -680,8 +798,9 @@ module.exports =
 
         switch( commandName )
         {
-            case "eval"    : this.evalCommand(    username, commandData ); return true;
-            case "program" : this.programCommand( username, commandData ); return true;
+            case "eval"     : this.evalCommand(     username, commandData ); return true;
+            case "program"  : this.programCommand(  username, commandData ); return true;
+            case "function" : this.functionCommand( username, commandData ); return true;
         }
 
         return false;
@@ -801,6 +920,85 @@ module.exports =
 
         this.activePlayerPrograms.set( username, programName );
         this.externalUserMessage( username, false, false, false, "running program." );
+    },
+
+    functionCommand( username, command )
+    {
+        if ( command.length == 0 )
+        {
+            this.externalUserMessage( username, false, true, true, "you must specify a function command." );
+            return;
+        }
+
+        var commandName = Util.getCommandPrefix( command );
+        var commandData = Util.getCommandRemainder( command );
+
+        switch( commandName )
+        {
+            case "create" : this.createFunctionCommand( username, commandData ); break;
+            default : this.externalUserMessage( username, false, true, true, "unrecognized function command." );
+        }
+    },
+
+    createFunctionCommand( username, commandData )
+    {
+        var identifierRegex = /^[A-Za-z_]\w*$/;
+
+        if ( commandData.length == 0 )
+        {
+            this.externalUserMessage( username, false, true, true, "you must specify your function." );
+            return;
+        }
+
+        var paramStart = commandData.indexOf( "(" );
+        var functionName = commandData.substring( 0, paramStart );
+        if ( !identifierRegex.test( functionName ))
+        {
+            this.externalUserMessage( username, false, true, true, "invalid function name." );
+            return;
+        }
+
+        var paramEnd = commandData.indexOf( ")" );
+        if ( paramEnd < 0 )
+        {
+            this.externalUserMessage( username, false, true, true, "missing closing parenthesis after parameters." );
+            return;
+        }
+
+        var params = [];
+        var paramData = commandData.substring( paramStart + 1, paramEnd );
+        var paramSplits = paramData.split( "," );
+        if (( paramSplits.length > 1 ) || ( paramSplits[ 0 ].trim().length > 0 ))
+        {
+            for ( var i = 0; i < paramSplits.length; i++ )
+            {
+                var paramName = paramSplits[ i ].trim();
+                if ( !identifierRegex.test( paramName ))
+                {
+                    this.externalUserMessage( username, false, true, true, "invalid parameter name." );
+                    return;
+                }
+
+                params.push( paramSplits[ i ].trim() );
+            }
+        }
+
+        var expression = commandData.substring( paramEnd + 1 ).trim();
+        if ( expression.length == 0 )
+        {
+            this.externalUserMessage( username, false, true, true, "you must specify an expression." );
+            return;
+        }
+
+        var playerFunctions = this.getPlayerFunctions( username );
+        if (( playerFunctions.has( functionName )) || ( this.getFunctionDetails( functionName ) !== null ))
+        {
+            this.externalUserMessage( username, false, true, false, "function already exists." );
+            return;
+        }
+
+        playerFunctions.set( functionName, { params: params, expression: expression } );
+        this.externalUserMessage( username, false, false, false, "created function." );
     },
 
     printCommand( username, commandData )
