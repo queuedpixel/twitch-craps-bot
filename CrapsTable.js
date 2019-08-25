@@ -926,9 +926,7 @@ module.exports =
             this.startRollTimer();
         }
 
-        // run the scripting programs and start the roll timer if the table is active after running the programs
         scripting.runPrograms();
-        if ( this.isTableActive() ) this.startRollTimer();
     },
 
     isTableActive()
