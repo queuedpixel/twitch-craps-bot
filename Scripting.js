@@ -937,6 +937,7 @@ module.exports =
         {
             case "create" : this.createFunctionCommand( username, commandData ); break;
             case "list"   : this.listFunctionsCommand( username ); break;
+            case "delete" : this.deleteFunctionCommand( username, commandData ); break;
             default : this.externalUserMessage( username, false, true, true, "unrecognized function command." );
         }
     },
@@ -1034,6 +1035,29 @@ module.exports =
 
             this.userMessage( username, message, true );
         }
+    },
+
+    deleteFunctionCommand( username, commandData )
+    {
+        var functionName = Util.getCommandPrefix( commandData );
+        var paramStart = functionName.indexOf( "(" );
+        if ( paramStart >= 0 ) functionName = functionName.substring( 0, paramStart );
+
+        if ( functionName.length == 0 )
+        {
+            this.externalUserMessage( username, false, true, true, "you must specify a function name." );
+            return;
+        }
+
+        var playerFunctions = this.getPlayerFunctions( username );
+        if ( !playerFunctions.has( functionName ))
+        {
+            this.externalUserMessage( username, false, true, false, "function does not exist." );
+            return;
+        }
+
+        playerFunctions.delete( functionName );
+        this.externalUserMessage( username, false, false, false, "deleted function." );
     },
 
     printCommand( username, commandData )
