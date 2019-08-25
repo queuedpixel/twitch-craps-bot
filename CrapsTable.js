@@ -70,6 +70,7 @@ module.exports =
     rollTimerRunning: false,
     rollTimerCounter: 0,
     canDisplayLeaderboard: false,
+    queuedMessages: [],
 
     // override this function to listen to craps table messages
     onMessage( message ) {},
@@ -81,6 +82,12 @@ module.exports =
         {
             this.displayLeaderboard();
             this.canDisplayLeaderboard = false;
+        }
+
+        if ( this.queuedMessages.length > 0 )
+        {
+            for ( var i = 0; i < this.queuedMessages.length; i++ ) Util.log( this.queuedMessages[ i ], true );
+            this.queuedMessages = [];
         }
     },
 
@@ -403,6 +410,18 @@ module.exports =
         }
 
         return availableBalance;
+    },
+
+    getPlayerBets()
+    {
+        var playerBets = new Map();
+        for ( let username of this.playerBalances.keys() )
+        {
+            var amount = this.getBalance( username ) - this.getAvailableBalance( username );
+            if ( amount > 0 ) playerBets.set( username, amount );
+        }
+
+        return playerBets;
     },
 
     adjustBalance( username, amount )
@@ -926,13 +945,55 @@ module.exports =
             this.startRollTimer();
         }
 
-        scripting.runPrograms();
+        this.runPrograms();
     },
 
     isTableActive()
     {
         // table is active if bets exist or if we have a point
         return ( this.betsExist() || this.point != 0 );
+    },
+
+    runPrograms()
+    {
+        var originalPlayerBets = this.getPlayerBets();
+        scripting.runPrograms();
+        var currentPlayerBets = this.getPlayerBets();
+
+        var output = [];
+        for ( let username of currentPlayerBets.keys() )
+        {
+            var originalAmount = 0;
+            if ( originalPlayerBets.has( username )) originalAmount = originalPlayerBets.get( username );
+            var currentAmount = currentPlayerBets.get( username );
+            var delta = currentAmount - originalAmount;
+            if ( delta > 0 ) output.push( { username: username, amount: this.formatCurrency( delta, "" ) } );
+        }
+
+        // sort the output by username
+        output.sort( function( a, b ) { return a.username == b.username ? 0 : ( a.username > b.username ? 1 : -1 ) } );
+
+        // get the maximum length of the usernames and amounts
+        var usernameMaxLength = 0;
+        var amountMaxLength = 0;
+        for ( var i = 0; i < output.length; i++ )
+        {
+            var username = output[ i ].username;
+            var amount   = output[ i ].amount;
+            if ( username.length > usernameMaxLength ) usernameMaxLength = username.length;
+            if ( amount.length   > amountMaxLength   ) amountMaxLength   = amount.length;
+        }
+
+        // queue the output
+        if ( output.length > 0 ) this.queuedMessages.push( "Bets Placed by Programs:" );
+        for ( var i = 0; i < output.length; i++ )
+        {
+            var username = output[ i ].username;
+            var amount   = output[ i ].amount;
+            var usernamePadding = " ".repeat( usernameMaxLength - username.length );
+            var amountPadding   = " ".repeat( amountMaxLength   - amount.length   );
+            this.queuedMessages.push( "    " + username + usernamePadding + " : § " + amountPadding + amount );
+        }
     },
 
     betsExist()
