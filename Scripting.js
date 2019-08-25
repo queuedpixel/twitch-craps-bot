@@ -936,6 +936,7 @@ module.exports =
         switch( commandName )
         {
             case "create" : this.createFunctionCommand( username, commandData ); break;
+            case "list"   : this.listFunctionsCommand( username ); break;
             default : this.externalUserMessage( username, false, true, true, "unrecognized function command." );
         }
     },
@@ -979,7 +980,7 @@ module.exports =
                     return;
                 }
 
-                params.push( paramSplits[ i ].trim() );
+                params.push( paramName );
             }
         }
 
@@ -1001,32 +1002,65 @@ module.exports =
         this.externalUserMessage( username, false, false, false, "created function." );
     },
 
+    listFunctionsCommand( username )
+    {
+        var playerFunctions = this.getPlayerFunctions( username );
+        if ( playerFunctions.size == 0 )
+        {
+            this.externalUserMessage( username, false, false, false, "you have no functions." );
+        }
+        else
+        {
+            this.externalUserMessage( username, false, false, false,
+                                      "listed " + playerFunctions.size + " function" +
+                                      ( playerFunctions.size == 1 ? "" : "s" ) + "." );
+        }
+
+        for ( let functionName of playerFunctions.keys() )
+        {
+            var functionDefinition = playerFunctions.get( functionName );
+            var params = functionDefinition.params;
+            var expression = functionDefinition.expression;
+
+            var message = functionName + "(";
+            for ( var i = 0; i < params.length; i++ )
+            {
+                if ( i > 0 ) message += ",";
+                message += " " + params[ i ];
+            }
+            if ( params.length > 0 ) message += " ";
+            message += ") " + expression;
+
+            this.userMessage( username, message, true );
+        }
+    },
+
     printCommand( username, commandData )
     {
-        this.userMessage( username, "print - " + commandData );
+        this.userMessage( username, "print - " + commandData, true );
     },
 
     errorMessage( username, message, indent = 0 )
     {
         var padding = "";
         for ( var i = 0; i < indent; i++ ) padding += "  ";
-        this.userMessage( username, "error - " + padding + message );
+        this.userMessage( username, "error - " + padding + message, false );
     },
 
     infoMessage( username, message )
     {
-        this.userMessage( username, "info - " + message );
+        this.userMessage( username, "info - " + message, false );
     },
 
     debugMessage( username, message, indent = 0 )
     {
         var padding = "";
         for ( var i = 0; i < indent; i++ ) padding += "  ";
-        this.userMessage( username, "debug - " + padding + message );
+        this.userMessage( username, "debug - " + padding + message, false );
     },
 
-    userMessage( username, message )
+    userMessage( username, message, toConsole )
     {
-        Util.log( username + ": " + message, false );
+        Util.log( username + ": " + message, toConsole );
     }
 };
