@@ -24,8 +24,27 @@ SOFTWARE.
 
 */
 
+var fs = require( "fs" );
+
 module.exports =
 {
+    debugLog: fs.createWriteStream( "debug.log", { flags: "a" } ),
+    n2: new Intl.NumberFormat( "en-US", { style: "decimal", useGrouping: false, minimumIntegerDigits: 2 } ),
+    n4: new Intl.NumberFormat( "en-US", { style: "decimal", useGrouping: false, minimumIntegerDigits: 4 } ),
+
+    log( message, toConsole )
+    {
+        var date = new Date();
+        var timestamp = this.n4.format( date.getFullYear()  ) + "-" +
+                        this.n2.format( date.getMonth() + 1 ) + "-" +
+                        this.n2.format( date.getDate()      ) + " " +
+                        this.n2.format( date.getHours()     ) + ":" +
+                        this.n2.format( date.getMinutes()   ) + ":" +
+                        this.n2.format( date.getSeconds()   );
+        this.debugLog.write( timestamp + " - " + message + "\n" );
+        if ( toConsole ) console.log( message );
+    },
+
     // remove leading space, remove trailing space, and replace multiple spaces with a single space
     collapseSpace( value )
     {

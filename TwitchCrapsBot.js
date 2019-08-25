@@ -36,7 +36,7 @@ var Util       = require( "./Util.js"       );
 
 function logMessage( username, message )
 {
-    console.log( "<" + username + ">: " + message );
+    Util.log( "<" + username + ">: " + message, true );
 }
 
 crapsTable.onMessage = function( message ) { messageQueue.push( message ); };

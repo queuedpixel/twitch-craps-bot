@@ -1027,6 +1027,6 @@ module.exports =
 
     userMessage( username, message )
     {
-        console.log( username + ": " + message );
+        Util.log( username + ": " + message, false );
     }
 };

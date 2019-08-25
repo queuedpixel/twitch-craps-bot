@@ -145,7 +145,7 @@ module.exports =
         {
             if ( err )
             {
-                console.log( "Unable to read \"players.json\". Resetting player balances." );
+                Util.log( "Unable to read \"players.json\". Resetting player balances.", true );
                 return;
             }
 
@@ -1012,17 +1012,17 @@ module.exports =
                    "-".repeat( usernameMaxLength ) +
                    "-".repeat( balanceMaxLength  ) +
                    "--------";
-        console.log( line );
+        Util.log( line, true );
 
         leaderboard.sort( function( b, a ) { return a.balance - b.balance; } );
         for ( var i = 0; i < leaderboard.length; i++ )
         {
             var index = ( i + 1 ).toString();
             var indexSpacing = " ".repeat( indexMaxLength - index.length );
-            console.log( indexSpacing + index + " - " + leaderboard[ i ].item );
+            Util.log( indexSpacing + index + " - " + leaderboard[ i ].item, true );
         }
 
-        console.log( line );
+        Util.log( line, true );
     },
 
     // cooldown for commands users are allowed to run once per roll; return true if the user has already run the command
