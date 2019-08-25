@@ -991,15 +991,16 @@ module.exports =
             return;
         }
 
-        var playerFunctions = this.getPlayerFunctions( username );
-        if (( playerFunctions.has( functionName )) || ( this.getFunctionDetails( functionName ) !== null ))
+        if ( this.getFunctionDetails( functionName ) !== null )
         {
-            this.externalUserMessage( username, false, true, false, "function already exists." );
+            this.externalUserMessage( username, false, true, false, "system function with this name already exists." );
             return;
         }
 
+        var playerFunctions = this.getPlayerFunctions( username );
+        var operation = playerFunctions.has( functionName ) ? "updated" : "created";
         playerFunctions.set( functionName, { params: params, expression: expression } );
-        this.externalUserMessage( username, false, false, false, "created function." );
+        this.externalUserMessage( username, false, false, false, operation + " function." );
     },
 
     listFunctionsCommand( username )
