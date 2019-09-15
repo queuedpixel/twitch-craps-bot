@@ -846,6 +846,8 @@ module.exports =
         switch( commandName )
         {
             case "create" : this.createProgramCommand( username, commandData ); break;
+            case "list"   : this.listProgramsCommand(  username              ); break;
+            case "view"   : this.viewProgramCommand(   username, commandData ); break;
             case "add"    : this.addStatementCommand(  username, commandData ); break;
             case "run"    : this.runProgramCommand(    username, commandData ); break;
             default : this.externalUserMessage( username, false, true, true, "unrecognized program command." );
@@ -870,6 +872,53 @@ module.exports =
 
         playerPrograms.set( programName, [] );
         this.externalUserMessage( username, false, false, false, "created program." );
+    },
+
+    listProgramsCommand( username )
+    {
+        var playerPrograms = this.getPlayerPrograms( username );
+        if ( playerPrograms.size == 0 )
+        {
+            this.externalUserMessage( username, false, false, false, "you have no programs." );
+        }
+        else
+        {
+            this.externalUserMessage( username, false, false, false,
+                                      "listed " + playerPrograms.size + " program" +
+                                      ( playerPrograms.size == 1 ? "" : "s" ) + "." );
+        }
+
+        for ( let programName of playerPrograms.keys() )
+        {
+            this.userMessage( username, programName, true );
+        }
+    },
+
+    viewProgramCommand( username, commandData )
+    {
+        if ( commandData.length == 0 )
+        {
+            this.externalUserMessage( username, false, true, true, "you must specify a program name." );
+            return;
+        }
+
+        var programName = Util.getCommandPrefix( commandData );
+        var playerPrograms = this.getPlayerPrograms( username );
+        if ( !playerPrograms.has( programName ))
+        {
+            this.externalUserMessage( username, false, true, false, "program does not exist." );
+            return;
+        }
+
+        var program = playerPrograms.get( programName );
+        for ( var i = 0; i < program.length; i++ )
+        {
+            this.userMessage( username, "[" + i + "] " + program[ i ].condition + " : " + program[ i ].action, true );
+        }
+
+        this.externalUserMessage( username, false, false, false,
+                                  "listed " + program.length + " statement" +
+                                  ( program.length == 1 ? "" : "s" ) + "." );
     },
 
     addStatementCommand( username, commandData )
