@@ -841,6 +841,7 @@ module.exports =
             case "view"   : this.viewProgramCommand(     username, commandData ); break;
             case "add"    : this.addStatementCommand(    username, commandData ); break;
             case "insert" : this.insertStatementCommand( username, commandData ); break;
+            case "update" : this.updateStatementCommand( username, commandData ); break;
             case "run"    : this.runProgramCommand(      username, commandData ); break;
             default : this.externalUserMessage( username, false, true, true, "unrecognized program command." );
         }
@@ -936,6 +937,16 @@ module.exports =
 
     insertStatementCommand( username, commandData )
     {
+        this.insertStatement( username, commandData, false );
+    },
+
+    updateStatementCommand( username, commandData )
+    {
+        this.insertStatement( username, commandData, true );
+    },
+
+    insertStatement( username, commandData, deleteExisting )
+    {
         if ( commandData.length == 0 )
         {
             this.externalUserMessage( username, false, true, true, "you must specify a program name." );
@@ -957,7 +968,7 @@ module.exports =
         var program = this.getPlayerProgram( username, programName );
         if ( program === null ) return;
 
-        if ( index > program.length )
+        if ( index > ( deleteExisting ? program.length - 1 : program.length ))
         {
             this.externalUserMessage( username, false, true, false, "index is too large." );
             return;
@@ -966,8 +977,9 @@ module.exports =
         var statement = this.getStatementFromCommand( username, statementData );
         if ( statement === null ) return;
 
-        program.splice( index, 0, statement );
-        this.externalUserMessage( username, false, false, false, "inserted statement." );
+        program.splice( index, deleteExisting ? 1 : 0, statement );
+        this.externalUserMessage( username, false, false, false,
+                                  ( deleteExisting ? "updated" : "inserted" ) + " statement." );
     },
 
     runProgramCommand( username, commandData )
