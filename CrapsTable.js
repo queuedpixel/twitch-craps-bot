@@ -267,16 +267,6 @@ module.exports =
         return prefix + ( amount / 100 ).toLocaleString( "en-US", { minimumFractionDigits: 2 } );
     },
 
-    safeParseInt( value )
-    {
-        // don't attempt to parse if the value is not entirely numeric
-        var regex = /^\d+$/;
-        if ( !regex.test( value )) return NaN;
-
-        // otherwise, parse the value with a radix of 10
-        return parseInt( value, 10 );
-    },
-
     getBet( username, betMap )
     {
         if ( betMap.has( username )) return betMap.get( username );
@@ -1193,8 +1183,8 @@ module.exports =
             return;
         }
 
-        var die1 = this.safeParseInt( commandDataSplits[ 0 ] );
-        var die2 = this.safeParseInt( commandDataSplits[ 1 ] );
+        var die1 = Util.safeParseInt( commandDataSplits[ 0 ] );
+        var die2 = Util.safeParseInt( commandDataSplits[ 1 ] );
 
         if (( Number.isNaN( die1 )) || ( Number.isNaN( die2 )))
         {
@@ -1491,7 +1481,7 @@ module.exports =
             return Number.NaN;
         }
 
-        var number = this.safeParseInt( Util.getCommandPrefix( betData ));
+        var number = Util.safeParseInt( Util.getCommandPrefix( betData ));
         if ( Number.isNaN( number ))
         {
             this.userMessage( username, isScripting, true, true, "unable to parse number." );
@@ -1576,8 +1566,8 @@ module.exports =
             return;
         }
 
-        var die1 = this.safeParseInt( betDataSplits[ 0 ] );
-        var die2 = this.safeParseInt( betDataSplits[ 1 ] );
+        var die1 = Util.safeParseInt( betDataSplits[ 0 ] );
+        var die2 = Util.safeParseInt( betDataSplits[ 1 ] );
 
         if (( Number.isNaN( die1 )) || ( Number.isNaN( die2 )))
         {
@@ -1652,7 +1642,7 @@ module.exports =
         maxBet = Math.floor( maxBet / 100 ) * 100;
 
         var rawAmount = Util.getCommandPrefix( betData );
-        var amount = this.safeParseInt( rawAmount ) * 100;
+        var amount = Util.safeParseInt( rawAmount ) * 100;
         if ( rawAmount == "max" )
         {
             if ( maxBet < 100 )

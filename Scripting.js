@@ -98,6 +98,18 @@ module.exports =
         return this.playerPrograms.get( username );
     },
 
+    getPlayerProgram( username, programName )
+    {
+        var playerPrograms = this.getPlayerPrograms( username );
+        if ( !playerPrograms.has( programName ))
+        {
+            this.externalUserMessage( username, false, true, false, "program does not exist." );
+            return null;
+        }
+
+        return playerPrograms.get( programName );
+    },
+
     getPlayerFunctions( username )
     {
         if ( !this.playerFunctions.has( username )) this.playerFunctions.set( username, new Map() );
@@ -806,27 +818,6 @@ module.exports =
         return false;
     },
 
-    processScriptingCommand( username, command )
-    {
-        if ( command.length == 0 )
-        {
-            this.errorMessage( username, "No command specified." );
-            return;
-        }
-
-        var commandName = Util.getCommandPrefix( command );
-        var commandData = Util.getCommandRemainder( command );
-
-        // allow the external system to process the command rather than this function
-        if ( this.externalProcessScriptingCommand( username, command )) return;
-
-        switch( commandName )
-        {
-            case "print" : this.printCommand( username, commandData ); break;
-            default : this.errorMessage( username, "Unrecognized Command: " + commandName );
-        }
-    },
-
     evalCommand( username, commandData )
     {
         this.evalCompoundStatement( username, commandData, 0 );
@@ -845,11 +836,12 @@ module.exports =
 
         switch( commandName )
         {
-            case "create" : this.createProgramCommand( username, commandData ); break;
-            case "list"   : this.listProgramsCommand(  username              ); break;
-            case "view"   : this.viewProgramCommand(   username, commandData ); break;
-            case "add"    : this.addStatementCommand(  username, commandData ); break;
-            case "run"    : this.runProgramCommand(    username, commandData ); break;
+            case "create" : this.createProgramCommand(   username, commandData ); break;
+            case "list"   : this.listProgramsCommand(    username              ); break;
+            case "view"   : this.viewProgramCommand(     username, commandData ); break;
+            case "add"    : this.addStatementCommand(    username, commandData ); break;
+            case "insert" : this.insertStatementCommand( username, commandData ); break;
+            case "run"    : this.runProgramCommand(      username, commandData ); break;
             default : this.externalUserMessage( username, false, true, true, "unrecognized program command." );
         }
     },
@@ -930,25 +922,52 @@ module.exports =
         }
 
         var programName = Util.getCommandPrefix( commandData );
-        var statement   = Util.getCommandRemainder( commandData );
+        var statementData = Util.getCommandRemainder( commandData );
 
-        var playerPrograms = this.getPlayerPrograms( username );
-        if ( !playerPrograms.has( programName ))
-        {
-            this.externalUserMessage( username, false, true, false, "program does not exist." );
-            return;
-        }
+        var program = this.getPlayerProgram( username, programName );
+        if ( program === null ) return;
 
-        var statementSplits = statement.split( ":" );
-        if ( statementSplits.length != 2 )
-        {
-            this.externalUserMessage( username, false, true, true, "invalid statement syntax." );
-            return;
-        }
+        var statement = this.getStatementFromCommand( username, statementData );
+        if ( statement === null ) return;
 
-        var program = playerPrograms.get( programName );
-        program.push( { condition: statementSplits[ 0 ].trim(), action: statementSplits[ 1 ].trim() } );
+        program.push( statement );
         this.externalUserMessage( username, false, false, false, "added statement." );
+    },
+
+    insertStatementCommand( username, commandData )
+    {
+        if ( commandData.length == 0 )
+        {
+            this.externalUserMessage( username, false, true, true, "you must specify a program name." );
+            return;
+        }
+
+        var programName = Util.getCommandPrefix( commandData );
+        var insertData = Util.getCommandRemainder( commandData );
+        var rawIndex = Util.getCommandPrefix( insertData );
+        var statementData = Util.getCommandRemainder( insertData );
+
+        var index = Util.safeParseInt( rawIndex );
+        if ( Number.isNaN( index ))
+        {
+            this.externalUserMessage( username, false, true, true, "unable to parse index." );
+            return;
+        }
+
+        var program = this.getPlayerProgram( username, programName );
+        if ( program === null ) return;
+
+        if ( index > program.length )
+        {
+            this.externalUserMessage( username, false, true, false, "index is too large." );
+            return;
+        }
+
+        var statement = this.getStatementFromCommand( username, statementData );
+        if ( statement === null ) return;
+
+        program.splice( index, 0, statement );
+        this.externalUserMessage( username, false, false, false, "inserted statement." );
     },
 
     runProgramCommand( username, commandData )
@@ -969,6 +988,18 @@ module.exports =
 
         this.activePlayerPrograms.set( username, programName );
         this.externalUserMessage( username, false, false, false, "running program." );
+    },
+
+    getStatementFromCommand( username, commandData )
+    {
+        var splits = commandData.split( ":" );
+        if ( splits.length != 2 )
+        {
+            this.externalUserMessage( username, false, true, true, "invalid statement syntax." );
+            return null;
+        }
+
+        return { condition: splits[ 0 ].trim(), action: splits[ 1 ].trim() };
     },
 
     functionCommand( username, command )
@@ -1107,6 +1138,27 @@ module.exports =
 
         playerFunctions.delete( functionName );
         this.externalUserMessage( username, false, false, false, "deleted function." );
+    },
+
+    processScriptingCommand( username, command )
+    {
+        if ( command.length == 0 )
+        {
+            this.errorMessage( username, "No command specified." );
+            return;
+        }
+
+        var commandName = Util.getCommandPrefix( command );
+        var commandData = Util.getCommandRemainder( command );
+
+        // allow the external system to process the command rather than this function
+        if ( this.externalProcessScriptingCommand( username, command )) return;
+
+        switch( commandName )
+        {
+            case "print" : this.printCommand( username, commandData ); break;
+            default : this.errorMessage( username, "Unrecognized Command: " + commandName );
+        }
     },
 
     printCommand( username, commandData )

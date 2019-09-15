@@ -72,5 +72,15 @@ module.exports =
     getCommandRemainder( command )
     {
         return this.collapseSpace( command ).substring( this.getCommandPrefix( command ).length ).trim();
+    },
+
+    safeParseInt( value )
+    {
+        // don't attempt to parse if the value is not entirely numeric
+        var regex = /^\d+$/;
+        if ( !regex.test( value )) return NaN;
+
+        // otherwise, parse the value with a radix of 10
+        return parseInt( value, 10 );
     }
 };
