@@ -845,6 +845,7 @@ module.exports =
             case "remove" : this.removeStatementCommand( username, commandData ); break;
             case "run"    : this.runProgramCommand(      username, commandData ); break;
             case "stop"   : this.stopProgramCommand(     username              ); break;
+            case "delete" : this.deleteProgramCommand(   username, commandData ); break;
             default : this.externalUserMessage( username, false, true, true, "unrecognized program command." );
         }
     },
@@ -1046,6 +1047,33 @@ module.exports =
 
         this.activePlayerPrograms.delete( username );
         this.externalUserMessage( username, false, false, false, "stopping program." );
+    },
+
+    deleteProgramCommand( username, commandData )
+    {
+        if ( commandData.length == 0 )
+        {
+            this.externalUserMessage( username, false, true, true, "you must specify a program name." );
+            return;
+        }
+
+        var playerPrograms = this.getPlayerPrograms( username );
+        var programName = Util.getCommandPrefix( commandData );
+        if ( !playerPrograms.has( programName ))
+        {
+            this.externalUserMessage( username, false, true, false, "program does not exist." );
+            return;
+        }
+
+        if (( this.activePlayerPrograms.has( username )) &&
+            ( this.activePlayerPrograms.get( username ) == programName ))
+        {
+            this.externalUserMessage( username, false, true, true, "cannot delete a running program." );
+            return;
+        }
+
+        playerPrograms.delete( programName );
+        this.externalUserMessage( username, false, false, false, "deleted program." );
     },
 
     getStatementFromCommand( username, commandData )
