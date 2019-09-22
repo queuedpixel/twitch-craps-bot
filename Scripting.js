@@ -29,10 +29,12 @@ var Util = require( "./Util.js" );
 
 module.exports =
 {
+    identifierRegex: /^[A-Za-z_]\w*$/,
     maxCallStack: 1000,
     playerPrograms: new Map(),
     activePlayerPrograms: new Map(),
     playerFunctions: new Map(),
+    playerVariables: new Map(),
 
     // override this function to chat messages to users
     externalUserMessage( username, isScripting, isError, helpNeeded, message ) {},
@@ -62,9 +64,11 @@ module.exports =
             var data = JSON.parse( fileData );
             data.playerPrograms  = data.playerPrograms.map(  item => [ item[ 0 ], new Map( item[ 1 ] ) ] );
             data.playerFunctions = data.playerFunctions.map( item => [ item[ 0 ], new Map( item[ 1 ] ) ] );
+            data.playerVariables = data.playerVariables.map( item => [ item[ 0 ], new Map( item[ 1 ] ) ] );
             this.playerPrograms       = new Map( data.playerPrograms       );
             this.activePlayerPrograms = new Map( data.activePlayerPrograms );
             this.playerFunctions      = new Map( data.playerFunctions      );
+            this.playerVariables      = new Map( data.playerVariables      );
         } );
     },
 
@@ -74,11 +78,13 @@ module.exports =
         {
             playerPrograms       : [ ...this.playerPrograms       ],
             activePlayerPrograms : [ ...this.activePlayerPrograms ],
-            playerFunctions      : [ ...this.playerFunctions      ]
+            playerFunctions      : [ ...this.playerFunctions      ],
+            playerVariables      : [ ...this.playerVariables      ]
         };
 
         data.playerPrograms  = data.playerPrograms.map(  item => [ item[ 0 ], [ ...item[ 1 ]]] );
         data.playerFunctions = data.playerFunctions.map( item => [ item[ 0 ], [ ...item[ 1 ]]] );
+        data.playerVariables = data.playerVariables.map( item => [ item[ 0 ], [ ...item[ 1 ]]] );
 
         fs.writeFile( "programs.json", JSON.stringify( data, undefined, 4 ),
                       ( err ) => { if ( err ) throw err; } );
@@ -150,6 +156,12 @@ module.exports =
     {
         if ( !this.playerFunctions.has( username )) this.playerFunctions.set( username, new Map() );
         return this.playerFunctions.get( username );
+    },
+
+    getPlayerVariables( username )
+    {
+        if ( !this.playerVariables.has( username )) this.playerVariables.set( username, new Map() );
+        return this.playerVariables.get( username );
     },
 
     runPrograms()
@@ -472,8 +484,14 @@ module.exports =
                              this.externalVariableReference( username, identifier );
                 if ( result === null )
                 {
-                    this.errorMessage( username, "Unable to find identifier.", indent );
-                    return null;
+                    var playerVariables = this.getPlayerVariables( username );
+                    if ( !playerVariables.has( identifier ))
+                    {
+                        this.errorMessage( username, "Unable to find identifier.", indent );
+                        return null;
+                    }
+
+                    result = playerVariables.get( identifier );
                 }
 
                 this.debugMessage( username, "Value: " + this.tokenToString( result ), indent );
@@ -846,9 +864,10 @@ module.exports =
 
         switch( commandName )
         {
-            case "eval"     : this.evalCommand(     username, commandData ); return true;
-            case "program"  : this.programCommand(  username, commandData ); return true;
-            case "function" : this.functionCommand( username, commandData ); return true;
+            case "eval"     : this.evalCommand(     username, commandData        ); return true;
+            case "program"  : this.programCommand(  username, commandData        ); return true;
+            case "function" : this.functionCommand( username, commandData        ); return true;
+            case "variable" : this.variableCommand( username, commandData, false ); return true;
         }
 
         return false;
@@ -1146,8 +1165,6 @@ module.exports =
 
     createFunctionCommand( username, commandData )
     {
-        var identifierRegex = /^[A-Za-z_]\w*$/;
-
         if ( commandData.length == 0 )
         {
             this.externalUserMessage( username, false, true, true, "you must specify your function." );
@@ -1156,7 +1173,7 @@ module.exports =
 
         var paramStart = commandData.indexOf( "(" );
         var functionName = commandData.substring( 0, paramStart );
-        if ( !identifierRegex.test( functionName ))
+        if ( !this.identifierRegex.test( functionName ))
         {
             this.externalUserMessage( username, false, true, true, "invalid function name." );
             return;
@@ -1177,7 +1194,7 @@ module.exports =
             for ( var i = 0; i < paramSplits.length; i++ )
             {
                 var paramName = paramSplits[ i ].trim();
-                if ( !identifierRegex.test( paramName ))
+                if ( !this.identifierRegex.test( paramName ))
                 {
                     this.externalUserMessage( username, false, true, true, "invalid parameter name." );
                     return;
@@ -1262,6 +1279,112 @@ module.exports =
         this.externalUserMessage( username, false, false, false, "deleted function." );
     },
 
+    variableCommand( username, command, isScripting )
+    {
+        if ( command.length == 0 )
+        {
+            this.externalUserMessage( username, isScripting, true, true, "you must specify a variable command." );
+            return;
+        }
+
+        var commandName = Util.getCommandPrefix( command );
+        var commandData = Util.getCommandRemainder( command );
+
+        switch( commandName )
+        {
+            case "create" : this.createVariableCommand( username, commandData, isScripting ); break;
+            case "list"   : this.listVariablesCommand(  username,              isScripting ); break;
+            case "delete" : this.deleteVariableCommand( username, commandData, isScripting ); break;
+            default : this.externalUserMessage( username, isScripting, true, true, "unrecognized variable command." );
+        }
+    },
+
+    createVariableCommand( username, commandData, isScripting )
+    {
+        if ( commandData.length == 0 )
+        {
+            this.externalUserMessage( username, isScripting, true, true, "you must specify your variable." );
+            return;
+        }
+
+        var variableName = Util.getCommandPrefix( commandData );
+        var variableData = Util.getCommandRemainder( commandData );
+
+        if ( !this.identifierRegex.test( variableName ))
+        {
+            this.externalUserMessage( username, isScripting, true, true, "invalid variable name." );
+            return;
+        }
+
+        if ( variableData.length == 0 )
+        {
+            this.externalUserMessage( username, isScripting, true, true,
+                                      "you must specify a value for your variable." );
+            return;
+        }
+
+        var context = { callStack: 0, params: new Map() };
+        var result = this.evalExpression( username, context, variableData, 0 );
+        if ( result === null )
+        {
+            this.externalUserMessage( username, isScripting, true, true, "failed to evaluate variable value." );
+            return;
+        }
+
+        var playerVariables = this.getPlayerVariables( username );
+        var operation = playerVariables.has( variableName ) ? "updated" : "created";
+        playerVariables.set( variableName, result );
+        this.externalUserMessage( username, isScripting, false, false, operation + " variable." );
+    },
+
+    listVariablesCommand( username, isScripting )
+    {
+        if ( isScripting )
+        {
+            this.externalUserMessage( username, isScripting, true, false,
+                                      "cannot list variables from within a program." );
+            return;
+        }
+
+        var playerVariables = this.getPlayerVariables( username );
+        if ( playerVariables.size == 0 )
+        {
+            this.externalUserMessage( username, isScripting, false, false, "you have no variables." );
+        }
+        else
+        {
+            this.externalUserMessage( username, isScripting, false, false,
+                                      "listed " + playerVariables.size + " variable" +
+                                      ( playerVariables.size == 1 ? "" : "s" ) + "." );
+        }
+
+        for ( let variableName of playerVariables.keys() )
+        {
+            var variableValue = playerVariables.get( variableName );
+            this.userMessage( username, variableName + " = " + this.tokenToString( variableValue ), true );
+        }
+    },
+
+    deleteVariableCommand( username, commandData, isScripting )
+    {
+        if ( commandData.length == 0 )
+        {
+            this.externalUserMessage( username, isScripting, true, true, "you must specify a variable name." );
+            return;
+        }
+
+        var playerVariables = this.getPlayerVariables( username );
+        var variableName = Util.getCommandPrefix( commandData );
+        if ( !playerVariables.has( variableName ))
+        {
+            this.externalUserMessage( username, isScripting, true, false, "variable does not exist." );
+            return;
+        }
+
+        playerVariables.delete( variableName );
+        this.externalUserMessage( username, isScripting, false, false, "deleted variable." );
+    },
+
     processScriptingCommand( username, command )
     {
         if ( command.length == 0 )
@@ -1278,7 +1401,8 @@ module.exports =
 
         switch( commandName )
         {
-            case "print" : this.printCommand( username, commandData ); break;
+            case "print"    : this.printCommand(    username, commandData       ); break;
+            case "variable" : this.variableCommand( username, commandData, true ); break;
             default : this.errorMessage( username, "Unrecognized Command: " + commandName );
         }
     },
