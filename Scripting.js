@@ -842,6 +842,7 @@ module.exports =
             case "add"    : this.addStatementCommand(    username, commandData ); break;
             case "insert" : this.insertStatementCommand( username, commandData ); break;
             case "update" : this.updateStatementCommand( username, commandData ); break;
+            case "remove" : this.removeStatementCommand( username, commandData ); break;
             case "run"    : this.runProgramCommand(      username, commandData ); break;
             default : this.externalUserMessage( username, false, true, true, "unrecognized program command." );
         }
@@ -980,6 +981,38 @@ module.exports =
         program.splice( index, deleteExisting ? 1 : 0, statement );
         this.externalUserMessage( username, false, false, false,
                                   ( deleteExisting ? "updated" : "inserted" ) + " statement." );
+    },
+
+    removeStatementCommand( username, commandData )
+    {
+        if ( commandData.length == 0 )
+        {
+            this.externalUserMessage( username, false, true, true, "you must specify a program name." );
+            return;
+        }
+
+        var programName = Util.getCommandPrefix( commandData );
+        var removeData = Util.getCommandRemainder( commandData );
+        var rawIndex = Util.getCommandPrefix( removeData );
+
+        var index = Util.safeParseInt( rawIndex );
+        if ( Number.isNaN( index ))
+        {
+            this.externalUserMessage( username, false, true, true, "unable to parse index." );
+            return;
+        }
+
+        var program = this.getPlayerProgram( username, programName );
+        if ( program === null ) return;
+
+        if ( index >= program.length )
+        {
+            this.externalUserMessage( username, false, true, false, "index is too large." );
+            return;
+        }
+
+        program.splice( index, 1 );
+        this.externalUserMessage( username, false, false, false, "deleted statement." );
     },
 
     runProgramCommand( username, commandData )
