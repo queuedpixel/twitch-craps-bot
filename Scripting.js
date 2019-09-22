@@ -844,6 +844,7 @@ module.exports =
             case "update" : this.updateStatementCommand( username, commandData ); break;
             case "remove" : this.removeStatementCommand( username, commandData ); break;
             case "run"    : this.runProgramCommand(      username, commandData ); break;
+            case "stop"   : this.stopProgramCommand(     username              ); break;
             default : this.externalUserMessage( username, false, true, true, "unrecognized program command." );
         }
     },
@@ -1033,6 +1034,18 @@ module.exports =
 
         this.activePlayerPrograms.set( username, programName );
         this.externalUserMessage( username, false, false, false, "running program." );
+    },
+
+    stopProgramCommand( username )
+    {
+        if ( !this.activePlayerPrograms.has( username ))
+        {
+            this.externalUserMessage( username, false, true, false, "you have no program running." );
+            return;
+        }
+
+        this.activePlayerPrograms.delete( username );
+        this.externalUserMessage( username, false, false, false, "stopping program." );
     },
 
     getStatementFromCommand( username, commandData )
