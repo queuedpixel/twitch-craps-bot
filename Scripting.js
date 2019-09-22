@@ -1050,7 +1050,7 @@ module.exports =
         }
 
         program.splice( index, 1 );
-        this.externalUserMessage( username, false, false, false, "deleted statement." );
+        this.externalUserMessage( username, false, false, false, "removed statement." );
     },
 
     runProgramCommand( username, commandData )
