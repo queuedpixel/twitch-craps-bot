@@ -997,15 +997,15 @@ module.exports =
         var rawIndex = Util.getCommandPrefix( insertData );
         var statementData = Util.getCommandRemainder( insertData );
 
+        var program = this.getPlayerProgram( username, programName );
+        if ( program === null ) return;
+
         var index = Util.safeParseInt( rawIndex );
         if ( Number.isNaN( index ))
         {
             this.externalUserMessage( username, false, true, true, "unable to parse index." );
             return;
         }
-
-        var program = this.getPlayerProgram( username, programName );
-        if ( program === null ) return;
 
         if ( index > ( deleteExisting ? program.length - 1 : program.length ))
         {
@@ -1033,15 +1033,15 @@ module.exports =
         var removeData = Util.getCommandRemainder( commandData );
         var rawIndex = Util.getCommandPrefix( removeData );
 
+        var program = this.getPlayerProgram( username, programName );
+        if ( program === null ) return;
+
         var index = Util.safeParseInt( rawIndex );
         if ( Number.isNaN( index ))
         {
             this.externalUserMessage( username, false, true, true, "unable to parse index." );
             return;
         }
-
-        var program = this.getPlayerProgram( username, programName );
-        if ( program === null ) return;
 
         if ( index >= program.length )
         {
