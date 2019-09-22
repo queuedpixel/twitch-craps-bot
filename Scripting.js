@@ -24,6 +24,7 @@ SOFTWARE.
 
 */
 
+var fs   = require( "fs"        );
 var Util = require( "./Util.js" );
 
 module.exports =
@@ -46,6 +47,41 @@ module.exports =
     externalVariableReference( username, varName )
     {
         return null;
+    },
+
+    init()
+    {
+        fs.readFile( "programs.json", ( err, fileData ) =>
+        {
+            if ( err )
+            {
+                Util.log( "Unable to read \"programs.json\". Resetting player programs.", true );
+                return;
+            }
+
+            var data = JSON.parse( fileData );
+            data.playerPrograms  = data.playerPrograms.map(  item => [ item[ 0 ], new Map( item[ 1 ] ) ] );
+            data.playerFunctions = data.playerFunctions.map( item => [ item[ 0 ], new Map( item[ 1 ] ) ] );
+            this.playerPrograms       = new Map( data.playerPrograms       );
+            this.activePlayerPrograms = new Map( data.activePlayerPrograms );
+            this.playerFunctions      = new Map( data.playerFunctions      );
+        } );
+    },
+
+    saveData()
+    {
+        var data =
+        {
+            playerPrograms       : [ ...this.playerPrograms       ],
+            activePlayerPrograms : [ ...this.activePlayerPrograms ],
+            playerFunctions      : [ ...this.playerFunctions      ]
+        };
+
+        data.playerPrograms  = data.playerPrograms.map(  item => [ item[ 0 ], [ ...item[ 1 ]]] );
+        data.playerFunctions = data.playerFunctions.map( item => [ item[ 0 ], [ ...item[ 1 ]]] );
+
+        fs.writeFile( "programs.json", JSON.stringify( data, undefined, 4 ),
+                      ( err ) => { if ( err ) throw err; } );
     },
 
     tokenToString( token )

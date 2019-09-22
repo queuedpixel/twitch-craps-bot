@@ -24,4 +24,5 @@ config.js
 debug.log
 node_modules
 package-lock.json
+programs.json
 players.json

@@ -159,6 +159,8 @@ module.exports =
             this.playerBalances = new Map( JSON.parse( data ));
             this.displayLeaderboard();
         } );
+
+        scripting.init();
     },
 
     startRollTimer()
@@ -904,6 +906,8 @@ module.exports =
             // save player balances
             fs.writeFile( "players.json", JSON.stringify( [ ...this.playerBalances ], undefined, 4 ),
                           ( err ) => { if ( err ) throw err; } );
+
+            scripting.saveData();
 
             // select the next banker
             if ( this.bankerQueue.length == 0 )
