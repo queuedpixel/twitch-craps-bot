@@ -150,9 +150,13 @@ module.exports =
         setInterval( this.crapsTimer.bind( this ), 1000 );
 
         fs.readFile( "players.json" )
-        .then( data =>
+        .then( fileData =>
         {
-            this.playerBalances = new Map( JSON.parse( data ));
+            var data = JSON.parse( fileData );
+            this.playerBalances = new Map( data.playerBalances );
+            this.betResults     = new Map( data.betResults     );
+            this.die1           = data.die1;
+            this.die2           = data.die2;
             this.displayLeaderboard();
         },
         () => { Util.log( "Unable to read \"players.json\". Resetting player balances.", true ); } )
@@ -223,14 +227,15 @@ module.exports =
         var fireBetAllowed = ( this.firePointCount() == 0 ) && ( this.point == 0 );
         switch( varName )
         {
-            case "fireBetAllowed" : return { type: "boolean", value: fireBetAllowed                    };
-            case "die1"           : return { type: "number",  value: this.die1                         };
-            case "die2"           : return { type: "number",  value: this.die2                         };
-            case "dieTotal"       : return { type: "number",  value: this.dieTotal                     };
-            case "point"          : return { type: "number",  value: this.point                        };
-            case "maxPayout"      : return { type: "number",  value: this.getMaxPayout()         / 100 };
-            case "balance"        : return { type: "number",  value: this.getBalance( username ) / 100 };
-            case "bankerBalance"  : return { type: "number",  value: this.getBankerBalance()     / 100 };
+            case "fireBetAllowed" : return { type: "boolean", value: fireBetAllowed                       };
+            case "die1"           : return { type: "number",  value: this.die1                            };
+            case "die2"           : return { type: "number",  value: this.die2                            };
+            case "dieTotal"       : return { type: "number",  value: this.die1 + this.die2                };
+            case "point"          : return { type: "number",  value: this.point                           };
+            case "maxPayout"      : return { type: "number",  value: this.getMaxPayout()            / 100 };
+            case "balance"        : return { type: "number",  value: this.getBalance( username )    / 100 };
+            case "bankerBalance"  : return { type: "number",  value: this.getBankerBalance()        / 100 };
+            case "betResults"     : return { type: "number",  value: this.getBetResults( username ) / 100 };
         }
 
         return null;
@@ -289,6 +294,12 @@ module.exports =
         }
 
         return this.playerBalances.get( username );
+    },
+
+    getBetResults( username )
+    {
+        if ( !this.betResults.has( username )) this.betResults.set( username, 0 );
+        return this.betResults.get( username );
     },
 
     getBankerBalance()
@@ -432,8 +443,6 @@ module.exports =
                 this.userMessage( username, false, false, false, "lost: " + this.formatCurrency( -result ));
             }
         }
-
-        this.betResults.clear();
     },
 
     oddsMultiplier( number )
@@ -586,8 +595,8 @@ module.exports =
             var result = Math.floor( betResult() * bets.get( username ));
             this.adjustBalance( username, result );
             this.adjustBalance( this.banker, -result );
-            if ( !this.betResults.has( username )) this.betResults.set( username, 0 );
-            this.betResults.set( username, this.betResults.get( username ) + result );
+            var curBetResults = this.getBetResults( username );
+            this.betResults.set( username, curBetResults + result );
         }
 
         bets.clear();
@@ -804,9 +813,9 @@ module.exports =
         // preserve the die values
         this.die1 = die1;
         this.die2 = die2;
-        this.dieTotal = dieTotal;
 
         // process bets
+        this.betResults.clear();
         this.processComeBets( dieTotal );
         this.processNumberBets( dieTotal );
         this.processFieldBets( dieTotal );
@@ -900,8 +909,15 @@ module.exports =
         // if the table is not active: stop the roll timer (among other things)
         if ( !this.isTableActive() )
         {
-            // save player balances
-            fs.writeFile( "players.json", JSON.stringify( [ ...this.playerBalances ], undefined, 4 ))
+            var data =
+            {
+                playerBalances : [ ...this.playerBalances ],
+                betResults     : [ ...this.betResults     ],
+                die1           : this.die1,
+                die2           : this.die2
+            };
+
+            fs.writeFile( "players.json", JSON.stringify( data, undefined, 4 ))
             .catch( error => { console.log( error ); process.exit( 1 ); } );
 
             scripting.saveData();
