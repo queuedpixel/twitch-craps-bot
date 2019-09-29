@@ -117,6 +117,7 @@ module.exports =
         scripting.externalUserMessage             = this.userMessage.bind( this );
         scripting.externalProcessScriptingCommand = this.processScriptingCommand.bind( this );
         scripting.externalVariableReference       = this.scriptingVariableReference.bind( this );
+        scripting.externalRunPrograms             = this.runPrograms.bind( this );
 
         // initialize bets arrays; indices: [ 0, 4, 5, 6, 8, 9, 10 ]
         for ( var i = 0; i <= 10; i++ ) if (( i == 0 ) || (( i >= 4 ) && ( i != 7 )))

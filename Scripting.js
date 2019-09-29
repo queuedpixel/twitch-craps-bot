@@ -35,8 +35,9 @@ module.exports =
     activePlayerPrograms: new Map(),
     playerFunctions: new Map(),
     playerVariables: new Map(),
+    runningUsername: null,
 
-    // override this function to chat messages to users
+    // override this function to send chat messages to users
     externalUserMessage( username, isScripting, isError, helpNeeded, message ) {},
 
     // override this function to process scripting commands
@@ -49,6 +50,12 @@ module.exports =
     externalVariableReference( username, varName )
     {
         return null;
+    },
+
+    // override this function to change how programs are run, when initiated by the scripting engine
+    externalRunPrograms()
+    {
+        this.runPrograms();
     },
 
     init()
@@ -164,6 +171,9 @@ module.exports =
     {
         for ( let username of this.activePlayerPrograms.keys() )
         {
+            // if running programs for a specific user, skip over programs from other users
+            if (( this.runningUsername !== null ) && ( this.runningUsername != username )) continue;
+
             var programName = this.activePlayerPrograms.get( username );
             this.debugMessage( username, "Running Program: " + programName, 0 );
 
@@ -1086,6 +1096,11 @@ module.exports =
 
         this.activePlayerPrograms.set( username, programName );
         this.externalUserMessage( username, false, false, false, "running program." );
+
+        // run programs, but just for this username
+        this.runningUsername = username;
+        this.externalRunPrograms();
+        this.runningUsername = null;
     },
 
     stopProgramCommand( username )
