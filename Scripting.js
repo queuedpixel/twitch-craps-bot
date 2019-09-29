@@ -36,6 +36,7 @@ module.exports =
     playerFunctions: new Map(),
     playerVariables: new Map(),
     runningUsername: null,
+    initializingProgram: false,
 
     // override this function to send chat messages to users
     externalUserMessage( username, isScripting, isError, helpNeeded, message ) {},
@@ -165,6 +166,22 @@ module.exports =
     {
         if ( !this.playerVariables.has( username )) this.playerVariables.set( username, new Map() );
         return this.playerVariables.get( username );
+    },
+
+    playerVariableReference( username, varName )
+    {
+        var playerVariables = this.getPlayerVariables( username );
+        return playerVariables.has( varName ) ? playerVariables.get( varName ) : null;
+    },
+
+    scriptingVariableReference( varName )
+    {
+        switch( varName )
+        {
+            case "init" : return { type: "boolean", value: this.initializingProgram };
+        }
+
+        return null;
     },
 
     runPrograms()
@@ -485,19 +502,15 @@ module.exports =
                 var identifier = token.name;
                 this.debugMessage( username, "Identifer: " + identifier, indent );
 
-                var result = context.params.has( identifier ) ?
-                             context.params.get( identifier ) :
-                             this.externalVariableReference( username, identifier );
+                var result = null;
+                if ( context.params.has( identifier )) result = context.params.get( identifier );
+                if ( result === null ) result = this.scriptingVariableReference( identifier );
+                if ( result === null ) result = this.externalVariableReference( username, identifier );
+                if ( result === null ) result = this.playerVariableReference( username, identifier );
                 if ( result === null )
                 {
-                    var playerVariables = this.getPlayerVariables( username );
-                    if ( !playerVariables.has( identifier ))
-                    {
-                        this.errorMessage( username, "Unable to find identifier.", indent );
-                        return null;
-                    }
-
-                    result = playerVariables.get( identifier );
+                    this.errorMessage( username, "Unable to find identifier.", indent );
+                    return null;
                 }
 
                 this.debugMessage( username, "Value: " + this.tokenToString( result ), indent );
@@ -1099,8 +1112,10 @@ module.exports =
 
         // run programs, but just for this username
         this.runningUsername = username;
+        this.initializingProgram = true;
         this.externalRunPrograms();
         this.runningUsername = null;
+        this.initializingProgram = false;
     },
 
     stopProgramCommand( username )
