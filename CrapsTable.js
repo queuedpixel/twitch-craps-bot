@@ -24,7 +24,7 @@ SOFTWARE.
 
 */
 
-var fs        = require( "fs"             );
+var fs        = require( "fs"             ).promises;
 var scripting = require( "./Scripting.js" );
 var Util      = require( "./Util.js"      );
 var config    = require( "./config.js"    );
@@ -148,19 +148,15 @@ module.exports =
 
         setInterval( this.crapsTimer.bind( this ), 1000 );
 
-        fs.readFile( "players.json", ( err, data ) =>
+        fs.readFile( "players.json" )
+        .then( data =>
         {
-            if ( err )
-            {
-                Util.log( "Unable to read \"players.json\". Resetting player balances.", true );
-                return;
-            }
-
             this.playerBalances = new Map( JSON.parse( data ));
             this.displayLeaderboard();
-        } );
-
-        scripting.init();
+        },
+        () => { Util.log( "Unable to read \"players.json\". Resetting player balances.", true ); } )
+        .then( () => { return scripting.init(); } )
+        .then( () => { this.runPrograms(); } );
     },
 
     startRollTimer()
@@ -904,8 +900,8 @@ module.exports =
         if ( !this.isTableActive() )
         {
             // save player balances
-            fs.writeFile( "players.json", JSON.stringify( [ ...this.playerBalances ], undefined, 4 ),
-                          ( err ) => { if ( err ) throw err; } );
+            fs.writeFile( "players.json", JSON.stringify( [ ...this.playerBalances ], undefined, 4 ))
+            .catch( error => { console.log( error ); process.exit( 1 ); } );
 
             scripting.saveData();
 

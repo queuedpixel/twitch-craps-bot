@@ -24,7 +24,7 @@ SOFTWARE.
 
 */
 
-var fs   = require( "fs"        );
+var fs   = require( "fs"        ).promises;
 var Util = require( "./Util.js" );
 
 module.exports =
@@ -53,14 +53,9 @@ module.exports =
 
     init()
     {
-        fs.readFile( "programs.json", ( err, fileData ) =>
+        return fs.readFile( "programs.json" )
+        .then( fileData =>
         {
-            if ( err )
-            {
-                Util.log( "Unable to read \"programs.json\". Resetting player programs.", true );
-                return;
-            }
-
             var data = JSON.parse( fileData );
             data.playerPrograms  = data.playerPrograms.map(  item => [ item[ 0 ], new Map( item[ 1 ] ) ] );
             data.playerFunctions = data.playerFunctions.map( item => [ item[ 0 ], new Map( item[ 1 ] ) ] );
@@ -69,7 +64,8 @@ module.exports =
             this.activePlayerPrograms = new Map( data.activePlayerPrograms );
             this.playerFunctions      = new Map( data.playerFunctions      );
             this.playerVariables      = new Map( data.playerVariables      );
-        } );
+        },
+        () => { Util.log( "Unable to read \"programs.json\". Resetting player programs.", true ); } );
     },
 
     saveData()
@@ -86,8 +82,8 @@ module.exports =
         data.playerFunctions = data.playerFunctions.map( item => [ item[ 0 ], [ ...item[ 1 ]]] );
         data.playerVariables = data.playerVariables.map( item => [ item[ 0 ], [ ...item[ 1 ]]] );
 
-        fs.writeFile( "programs.json", JSON.stringify( data, undefined, 4 ),
-                      ( err ) => { if ( err ) throw err; } );
+        fs.writeFile( "programs.json", JSON.stringify( data, undefined, 4 ))
+        .catch( error => { console.log( error ); process.exit( 1 ); } );
     },
 
     tokenToString( token )
