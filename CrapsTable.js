@@ -68,7 +68,6 @@ module.exports =
     balanceAdjustmentCounter: 0,
     rollTimerRunning: false,
     rollTimerCounter: 0,
-    canDisplayLeaderboard: false,
     queuedMessages: [],
 
     // override this function to listen to craps table messages
@@ -77,12 +76,6 @@ module.exports =
     // inform the craps table that the message queue is empty
     messageQueueEmpty()
     {
-        if ( this.canDisplayLeaderboard )
-        {
-            this.displayLeaderboard();
-            this.canDisplayLeaderboard = false;
-        }
-
         if ( this.queuedMessages.length > 0 )
         {
             for ( var i = 0; i < this.queuedMessages.length; i++ ) Util.log( this.queuedMessages[ i ], true );
@@ -941,7 +934,7 @@ module.exports =
 
             if ( this.banker !== null ) this.displayMaxPayout();
             this.stopRollTimer();
-            this.canDisplayLeaderboard = true;
+            this.displayLeaderboard();
         }
         // otherwise: start the timer for the next roll and display the max payout
         else
@@ -1077,17 +1070,17 @@ module.exports =
                    "-".repeat( usernameMaxLength ) +
                    "-".repeat( balanceMaxLength  ) +
                    "--------";
-        Util.log( line, true );
+        this.queuedMessages.push( line );
 
         leaderboard.sort( function( b, a ) { return a.balance - b.balance; } );
         for ( var i = 0; i < leaderboard.length; i++ )
         {
             var index = ( i + 1 ).toString();
             var indexSpacing = " ".repeat( indexMaxLength - index.length );
-            Util.log( indexSpacing + index + " - " + leaderboard[ i ].item, true );
+            this.queuedMessages.push( indexSpacing + index + " - " + leaderboard[ i ].item );
         }
 
-        Util.log( line, true );
+        this.queuedMessages.push( line );
     },
 
     // cooldown for commands users are allowed to run once per roll; return true if the user has already run the command
