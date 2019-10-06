@@ -185,7 +185,9 @@ module.exports =
     {
         switch( varName )
         {
-            case "init" : return { type: "boolean", value: this.initializingProgram };
+            case "true"  : return { type: "boolean", value: true                     };
+            case "false" : return { type: "boolean", value: false                    };
+            case "init"  : return { type: "boolean", value: this.initializingProgram };
         }
 
         return null;
