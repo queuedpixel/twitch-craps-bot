@@ -1065,7 +1065,7 @@ module.exports =
         var program = playerPrograms.get( programName );
         for ( var i = 0; i < program.length; i++ )
         {
-            this.userMessage( username, "[" + i + "] " + program[ i ].condition + " : " + program[ i ].action, true );
+            this.userMessage( username, "[" + i + "] " + program[ i ].condition + " ; " + program[ i ].action, true );
         }
 
         this.externalUserMessage( username, false, false, false,
@@ -1241,14 +1241,29 @@ module.exports =
 
     getStatementFromCommand( username, commandData )
     {
-        var splits = commandData.split( ":" );
-        if ( splits.length != 2 )
+        var seperatorIndex = commandData.indexOf( ";" );
+        if ( seperatorIndex < 0 )
         {
             this.externalUserMessage( username, false, true, true, "invalid statement syntax." );
             return null;
         }
 
-        return { condition: splits[ 0 ].trim(), action: splits[ 1 ].trim() };
+        var condition = commandData.substring( 0, seperatorIndex ).trim();
+        var action = commandData.substring( seperatorIndex + 1 ).trim();
+
+        if ( condition.length == 0 )
+        {
+            this.externalUserMessage( username, false, true, true, "missing condition." );
+            return null;
+        }
+
+        if ( action.length == 0 )
+        {
+            this.externalUserMessage( username, false, true, true, "missing action." );
+            return null;
+        }
+
+        return { condition: condition, action: action };
     },
 
     functionCommand( username, command )
