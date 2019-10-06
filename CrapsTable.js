@@ -54,7 +54,6 @@ module.exports =
     betResults: new Map(),
     die1: 0,
     die2: 0,
-    dieTotal: 0,
     point: 0,
     botUsername: null,
     banker: null,
