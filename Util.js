@@ -65,7 +65,7 @@ module.exports =
     // get the first element of a space-delimitted string and lower case it
     getCommandPrefix( command )
     {
-        return this.collapseSpace( command ).split( " " )[ 0 ].toLowerCase();
+        return this.collapseSpace( command ).split( " " )[ 0 ];
     },
 
     // get everything after the first element of a space-delimitted string

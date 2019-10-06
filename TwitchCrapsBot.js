@@ -112,7 +112,7 @@ client.on( "chat", function( chatChannel, userstate, message, self )
     logMessage( userstate.username, message );
 
     // pass the message along to the craps table class if it contains the "!craps" prefix
-    var commandName = Util.getCommandPrefix( message );
+    var commandName = Util.getCommandPrefix( message ).toLowerCase();
     var commandData = Util.getCommandRemainder( message );
     if ( commandName == "!craps" ) crapsTable.processCommand( userstate.username, commandData );
 } );

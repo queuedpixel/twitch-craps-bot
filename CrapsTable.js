@@ -1103,7 +1103,7 @@ module.exports =
         // allow the scripting engine to process the command rather than this function
         if ( scripting.processCommand( username, command )) return;
 
-        var commandName = Util.getCommandPrefix( command );
+        var commandName = Util.getCommandPrefix( command ).toLowerCase();
         var commandData = Util.getCommandRemainder( command );
 
         switch( commandName )
@@ -1126,7 +1126,7 @@ module.exports =
     {
         if ( command.length == 0 ) return;
 
-        var commandName = Util.getCommandPrefix( command );
+        var commandName = Util.getCommandPrefix( command ).toLowerCase();
         var commandData = Util.getCommandRemainder( command );
 
         switch( commandName )
@@ -1404,7 +1404,7 @@ module.exports =
             return;
         }
 
-        var betType = Util.getCommandPrefix( commandData );
+        var betType = Util.getCommandPrefix( commandData ).toLowerCase();
         var betData = Util.getCommandRemainder( commandData );
 
         if ( betType == "pass" )

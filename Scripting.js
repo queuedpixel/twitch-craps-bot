@@ -960,7 +960,7 @@ module.exports =
 
     processCommand( username, command )
     {
-        var commandName = Util.getCommandPrefix( command );
+        var commandName = Util.getCommandPrefix( command ).toLowerCase();
         var commandData = Util.getCommandRemainder( command );
 
         switch( commandName )
@@ -987,7 +987,7 @@ module.exports =
             return;
         }
 
-        var commandName = Util.getCommandPrefix( command );
+        var commandName = Util.getCommandPrefix( command ).toLowerCase();
         var commandData = Util.getCommandRemainder( command );
 
         switch( commandName )
@@ -1274,7 +1274,7 @@ module.exports =
             return;
         }
 
-        var commandName = Util.getCommandPrefix( command );
+        var commandName = Util.getCommandPrefix( command ).toLowerCase();
         var commandData = Util.getCommandRemainder( command );
 
         switch( commandName )
@@ -1410,7 +1410,7 @@ module.exports =
             return;
         }
 
-        var commandName = Util.getCommandPrefix( command );
+        var commandName = Util.getCommandPrefix( command ).toLowerCase();
         var commandData = Util.getCommandRemainder( command );
 
         switch( commandName )
@@ -1516,7 +1516,7 @@ module.exports =
             return;
         }
 
-        var commandName = Util.getCommandPrefix( command );
+        var commandName = Util.getCommandPrefix( command ).toLowerCase();
         var commandData = Util.getCommandRemainder( command );
 
         // allow the external system to process the command rather than this function
