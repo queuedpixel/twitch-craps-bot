@@ -117,6 +117,11 @@ module.exports =
         return !Number.isNaN( this.getOperatorPrecedence( token ));
     },
 
+    isUnaryOperator( token )
+    {
+        return token.type == "negate" || token.type == "not";
+    },
+
     getOperatorPrecedence( operator )
     {
         switch( operator.type )
@@ -134,6 +139,8 @@ module.exports =
             case "multiply"           : return 6;
             case "divide"             : return 6;
             case "remainder"          : return 6;
+            case "negate"             : return 7;
+            case "not"                : return 7;
             default                   : return NaN;
         }
     },
@@ -373,7 +380,16 @@ module.exports =
 
                 if ( character == "-" )
                 {
-                    tokens.push( { type: "subtract" } );
+                    if (( tokens.length == 0 ) ||
+                        ( this.isOperator( tokens[ tokens.length - 1 ] )) ||
+                        ( tokens[ tokens.length - 1 ].type == "openParen" ))
+                    {
+                        tokens.push( { type: "negate" } );
+                    }
+                    else
+                    {
+                        tokens.push( { type: "subtract" } );
+                    }
                     continue;
                 }
 
@@ -463,6 +479,7 @@ module.exports =
                     case "<=" : tokens.push( { type: "lessThanOrEqual"    } ); break;
                     case ">"  : tokens.push( { type: "greaterThan"        } ); break;
                     case ">=" : tokens.push( { type: "greaterThanOrEqual" } ); break;
+                    case "!"  : tokens.push( { type: "not"                } ); break;
                     default : this.errorMessage( username, "Unrecognized Operator: " + token, indent ); return null;
                 }
             }
@@ -557,7 +574,10 @@ module.exports =
             if (( this.isOperator( token )) && ( parenDepth == 0 ))
             {
                 var tokenPrecedence = this.getOperatorPrecedence( token );
-                if (( Number.isNaN( operatorPrecedence )) || ( operatorPrecedence >= tokenPrecedence ))
+                if (( Number.isNaN( operatorPrecedence )) ||     // we haven't found any operators yet
+                    ( operatorPrecedence > tokenPrecedence ) ||  // token is lower-precedence operator
+                    (( !this.isUnaryOperator( token )) &&
+                     ( operatorPrecedence == tokenPrecedence ))) // token is left-to-right operator of same precedence
                 {
                     operatorIndex = i;
                     operatorPrecedence = tokenPrecedence;
@@ -597,7 +617,15 @@ module.exports =
             return null;
         }
 
-        return this.evalOperator( username, context, tokens, operatorIndex, indent );
+
+        if ( this.isUnaryOperator( tokens[ operatorIndex ] ))
+        {
+            return this.evalUnaryOperator( username, context, tokens, operatorIndex, indent );
+        }
+        else
+        {
+            return this.evalBinaryOperator( username, context, tokens, operatorIndex, indent );
+        }
     },
 
     evalFunctionCall( username, context, functionName, paramTokens, indent )
@@ -728,10 +756,62 @@ module.exports =
         }
     },
 
-    evalOperator( username, context, tokens, operatorIndex, indent )
+    evalUnaryOperator( username, context, tokens, operatorIndex, indent )
     {
         var operatorToken = tokens[ operatorIndex ];
-        this.debugMessage( username, "Handling operator: " + this.tokenToString( operatorToken ), indent );
+        this.debugMessage( username, "Handling unary operator: " + this.tokenToString( operatorToken ), indent );
+
+        var operationName;
+        var operationFunction;
+        var operandType;
+        var resultType;
+
+        if ( operatorToken.type == "negate" )
+        {
+            operationName = "Negate";
+            operationFunction = this.negateOperation;
+            operandType = "number";
+            resultType = "number";
+        }
+        else if ( operatorToken.type == "not" )
+        {
+            operationName = "Not";
+            operationFunction = this.notOperation;
+            operandType = "boolean";
+            resultType = "boolean";
+        }
+        else
+        {
+            this.errorMessage( username, "Unrecognized unary operator.", indent );
+            return null;
+        }
+
+        this.debugMessage( username, "Operand:", indent );
+        var operand = this.evalTokens( username, context, tokens.slice( operatorIndex + 1 ), indent + 1 );
+        if ( operand === null ) return null;
+
+        var message = "Operation: " + operationName + ", Operand: " + this.tokenToString( operand );
+        this.debugMessage( username, message, indent );
+
+        if ( operand.type != operandType )
+        {
+            this.errorMessage( username,
+                               "Expected " + operandType + " operand, but received: " + operand.type, indent );
+            return null;
+        }
+
+        var result = { type: resultType, value: operationFunction( operand.value ) };
+        this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
+        return result;
+    },
+
+    negateOperation( operand ) { return -operand; },
+    notOperation(    operand ) { return !operand; },
+
+    evalBinaryOperator( username, context, tokens, operatorIndex, indent )
+    {
+        var operatorToken = tokens[ operatorIndex ];
+        this.debugMessage( username, "Handling binary operator: " + this.tokenToString( operatorToken ), indent );
 
         var operationName;
         var operationFunction;
@@ -831,50 +911,50 @@ module.exports =
         }
         else
         {
-            this.errorMessage( username, "Unrecognized operator.", indent );
+            this.errorMessage( username, "Unrecognized binary operator.", indent );
             return null;
         }
 
-        this.debugMessage( username, "Left Value:", indent );
-        var leftValue = this.evalTokens( username, context, tokens.slice( 0, operatorIndex ), indent + 1 );
-        if ( leftValue === null ) return null;
+        this.debugMessage( username, "Left Operand:", indent );
+        var leftOperand = this.evalTokens( username, context, tokens.slice( 0, operatorIndex ), indent + 1 );
+        if ( leftOperand === null ) return null;
 
-        this.debugMessage( username, "Right Value:", indent );
-        var rightValue = this.evalTokens( username, context, tokens.slice( operatorIndex + 1 ), indent + 1 );
-        if ( rightValue === null ) return null;
+        this.debugMessage( username, "Right Operand:", indent );
+        var rightOperand = this.evalTokens( username, context, tokens.slice( operatorIndex + 1 ), indent + 1 );
+        if ( rightOperand === null ) return null;
 
         var message = "Operation: " + operationName +
-                      ", Left: " + this.tokenToString( leftValue ) +
-                      ", Right: " + this.tokenToString( rightValue );
+                      ", Left: " + this.tokenToString( leftOperand ) +
+                      ", Right: " + this.tokenToString( rightOperand );
         this.debugMessage( username, message, indent );
 
         if (( operandType !== undefined ) &&
-            (( leftValue.type != operandType ) || ( rightValue.type != operandType )))
+            (( leftOperand.type != operandType ) || ( rightOperand.type != operandType )))
         {
             this.errorMessage( username,
                                "Expected " + operandType + " operands, but received: " +
-                               leftValue.type + " and " + rightValue.type, indent );
+                               leftOperand.type + " and " + rightOperand.type, indent );
             return null;
         }
 
-        var result = { type: resultType, value: operationFunction( leftValue.value, rightValue.value ) };
+        var result = { type: resultType, value: operationFunction( leftOperand.value, rightOperand.value ) };
         this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
         return result;
     },
 
-    orOperation(                 leftValue, rightValue ) { return leftValue ||  rightValue; },
-    andOperation(                leftValue, rightValue ) { return leftValue &&  rightValue; },
-    equalOperation(              leftValue, rightValue ) { return leftValue === rightValue; },
-    notEqualOperation(           leftValue, rightValue ) { return leftValue !== rightValue; },
-    lessThanOperation(           leftValue, rightValue ) { return leftValue <   rightValue; },
-    lessThanOrEqualOperation(    leftValue, rightValue ) { return leftValue <=  rightValue; },
-    greaterThanOperation(        leftValue, rightValue ) { return leftValue >   rightValue; },
-    greaterThanOrEqualOperation( leftValue, rightValue ) { return leftValue >=  rightValue; },
-    addOperation(                leftValue, rightValue ) { return leftValue +   rightValue; },
-    subtractOperation(           leftValue, rightValue ) { return leftValue -   rightValue; },
-    multiplyOperation(           leftValue, rightValue ) { return leftValue *   rightValue; },
-    divideOperation(             leftValue, rightValue ) { return leftValue /   rightValue; },
-    remainderOperation(          leftValue, rightValue ) { return leftValue %   rightValue; },
+    orOperation(                 leftOperand, rightOperand ) { return leftOperand ||  rightOperand; },
+    andOperation(                leftOperand, rightOperand ) { return leftOperand &&  rightOperand; },
+    equalOperation(              leftOperand, rightOperand ) { return leftOperand === rightOperand; },
+    notEqualOperation(           leftOperand, rightOperand ) { return leftOperand !== rightOperand; },
+    lessThanOperation(           leftOperand, rightOperand ) { return leftOperand <   rightOperand; },
+    lessThanOrEqualOperation(    leftOperand, rightOperand ) { return leftOperand <=  rightOperand; },
+    greaterThanOperation(        leftOperand, rightOperand ) { return leftOperand >   rightOperand; },
+    greaterThanOrEqualOperation( leftOperand, rightOperand ) { return leftOperand >=  rightOperand; },
+    addOperation(                leftOperand, rightOperand ) { return leftOperand +   rightOperand; },
+    subtractOperation(           leftOperand, rightOperand ) { return leftOperand -   rightOperand; },
+    multiplyOperation(           leftOperand, rightOperand ) { return leftOperand *   rightOperand; },
+    divideOperation(             leftOperand, rightOperand ) { return leftOperand /   rightOperand; },
+    remainderOperation(          leftOperand, rightOperand ) { return leftOperand %   rightOperand; },
 
     processCommand( username, command )
     {
