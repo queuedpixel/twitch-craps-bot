@@ -122,25 +122,31 @@ module.exports =
         return token.type == "negate" || token.type == "not";
     },
 
+    isRightToLeftOperator( token )
+    {
+        return token.type == "negate" || token.type == "not" || token.type == "conditional";
+    },
+
     getOperatorPrecedence( operator )
     {
         switch( operator.type )
         {
-            case "or"                 : return 1;
-            case "and"                : return 2;
-            case "equal"              : return 3;
-            case "notEqual"           : return 3;
-            case "lessThan"           : return 4;
-            case "lessThanOrEqual"    : return 4;
-            case "greaterThan"        : return 4;
-            case "greaterThanOrEqual" : return 4;
-            case "add"                : return 5;
-            case "subtract"           : return 5;
-            case "multiply"           : return 6;
-            case "divide"             : return 6;
-            case "remainder"          : return 6;
-            case "negate"             : return 7;
-            case "not"                : return 7;
+            case "conditional"        : return 1;
+            case "or"                 : return 2;
+            case "and"                : return 3;
+            case "equal"              : return 4;
+            case "notEqual"           : return 4;
+            case "lessThan"           : return 5;
+            case "lessThanOrEqual"    : return 5;
+            case "greaterThan"        : return 5;
+            case "greaterThanOrEqual" : return 5;
+            case "add"                : return 6;
+            case "subtract"           : return 6;
+            case "multiply"           : return 7;
+            case "divide"             : return 7;
+            case "remainder"          : return 7;
+            case "negate"             : return 8;
+            case "not"                : return 8;
             default                   : return NaN;
         }
     },
@@ -380,6 +386,18 @@ module.exports =
                     continue;
                 }
 
+                if ( character == "?" )
+                {
+                    tokens.push( { type: "conditional" } );
+                    continue;
+                }
+
+                if ( character == ":" )
+                {
+                    tokens.push( { type: "conditionalSeparator" } );
+                    continue;
+                }
+
                 if ( character == "-" )
                 {
                     if (( tokens.length == 0 ) ||
@@ -519,7 +537,7 @@ module.exports =
             if ( token.type == "identifier" )
             {
                 var identifier = token.name;
-                this.debugMessage( username, "Identifer: " + identifier, indent );
+                this.debugMessage( username, "Identifier: " + identifier, indent );
 
                 var result = null;
                 if ( context.params.has( identifier )) result = context.params.get( identifier );
@@ -578,7 +596,7 @@ module.exports =
                 var tokenPrecedence = this.getOperatorPrecedence( token );
                 if (( Number.isNaN( operatorPrecedence )) ||     // we haven't found any operators yet
                     ( operatorPrecedence > tokenPrecedence ) ||  // token is lower-precedence operator
-                    (( !this.isUnaryOperator( token )) &&
+                    (( !this.isRightToLeftOperator( token )) &&
                      ( operatorPrecedence == tokenPrecedence ))) // token is left-to-right operator of same precedence
                 {
                     operatorIndex = i;
@@ -619,8 +637,11 @@ module.exports =
             return null;
         }
 
-
-        if ( this.isUnaryOperator( tokens[ operatorIndex ] ))
+        if ( tokens[ operatorIndex ].type == "conditional" )
+        {
+            return this.evalConditionalOperator( username, context, tokens, operatorIndex, indent );
+        }
+        else if ( this.isUnaryOperator( tokens[ operatorIndex ] ))
         {
             return this.evalUnaryOperator( username, context, tokens, operatorIndex, indent );
         }
@@ -645,7 +666,7 @@ module.exports =
             }
         }
 
-        // create array of parameter tokens seperated by commas
+        // create array of parameter tokens separated by commas
         var splitParamTokens = [];
         if ( paramTokens.length > 0 )
         {
@@ -756,6 +777,80 @@ module.exports =
             var newContext = { callStack: context.callStack + 1, params: paramsMap };
             return this.evalExpression( username, newContext, playerFunction.expression, indent + 1 );
         }
+    },
+
+    evalConditionalOperator( username, context, tokens, operatorIndex, indent )
+    {
+        var operatorToken = tokens[ operatorIndex ];
+        if ( operatorToken.type != "conditional" )
+        {
+            this.errorMessage( username, "Expected conditional operator, but received:" + operatorToken.type, indent );
+            return null;
+        }
+
+        this.debugMessage( username, "Handling conditional operator.", indent );
+
+        // look for the conditional separator token for this conditional operator
+        // - ignore tokens inside parenthesis
+        // - ignore conditional separator tokens for internal conditional operators
+        var separatorIndex   = NaN;
+        var parenDepth       = 0;
+        var conditionalDepth = 0;
+
+        for ( var i = operatorIndex + 1; i < tokens.length; i++ )
+        {
+            var token = tokens[ i ];
+
+            // count parenthesis depth
+            if ( token.type == "openParen"  ) parenDepth++;
+            if ( token.type == "closeParen" ) parenDepth--;
+
+            // only search outside of parenthesized expressions
+            if ( parenDepth != 0 ) continue;
+
+            // count conditional depth
+            if ( token.type == "conditional" ) conditionalDepth++;
+            if ( token.type == "conditionalSeparator" )
+            {
+                if ( conditionalDepth > 0 ) conditionalDepth--;
+                else
+                {
+                    // we found our conditional separator
+                    separatorIndex = i;
+                    break;
+                }
+            }
+        }
+
+        if ( Number.isNaN( separatorIndex ))
+        {
+            this.errorMessage( username, "Missing conditional separator: :", indent );
+            return null;
+        }
+
+        this.debugMessage( username, "Condition:", indent );
+        var condition = this.evalTokens( username, context, tokens.slice( 0, operatorIndex ), indent + 1 );
+        if ( condition === null ) return null;
+
+        if ( condition.type != "boolean" )
+        {
+            this.errorMessage( username, "Expected boolean condition, but received: " + condition.type, indent );
+            return null;
+        }
+
+        var message = "Condition evaluated to " +
+                      ( condition.value ? "true" : "false" ) + ", evaluating " +
+                      ( condition.value ? "left" : "right" ) + " value:";
+        this.debugMessage( username, message, indent );
+
+        var resultTokens = condition.value ?
+                           tokens.slice( operatorIndex + 1, separatorIndex ) :
+                           tokens.slice( separatorIndex + 1 );
+        var result = this.evalTokens( username, context, resultTokens, indent + 1 );
+        if ( result === null ) return null;
+
+        this.debugMessage( username, "Result: " + this.tokenToString( result ), indent );
+        return result;
     },
 
     evalUnaryOperator( username, context, tokens, operatorIndex, indent )
@@ -1241,15 +1336,15 @@ module.exports =
 
     getStatementFromCommand( username, commandData )
     {
-        var seperatorIndex = commandData.indexOf( ";" );
-        if ( seperatorIndex < 0 )
+        var separatorIndex = commandData.indexOf( ";" );
+        if ( separatorIndex < 0 )
         {
             this.externalUserMessage( username, false, true, true, "invalid statement syntax." );
             return null;
         }
 
-        var condition = commandData.substring( 0, seperatorIndex ).trim();
-        var action = commandData.substring( seperatorIndex + 1 ).trim();
+        var condition = commandData.substring( 0, saperatorIndex ).trim();
+        var action = commandData.substring( separatorIndex + 1 ).trim();
 
         if ( condition.length == 0 )
         {
